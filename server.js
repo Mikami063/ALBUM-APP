@@ -18,18 +18,37 @@ function safeReadDir(dirPath) {
   }
 }
 
+function hasNumericArtistDirs(dirPath) {
+  const entries = safeReadDir(dirPath);
+  return entries.some((entry) => entry.isDirectory() && isNumericName(entry.name));
+}
+
 function pickWorksRoot() {
   if (process.env.WORKS_ROOT) {
     return path.resolve(process.env.WORKS_ROOT);
   }
 
-  const cwd = process.cwd();
-  const cwdBase = path.basename(cwd);
-  const parent = path.dirname(cwd);
-  const parentEntries = safeReadDir(parent).filter((d) => d.isDirectory() && isNumericName(d.name));
+  const candidates = new Set();
+  const cwd = path.resolve(process.cwd());
+  const scriptDir = path.resolve(__dirname);
+  const scriptParent = path.dirname(scriptDir);
+  const scriptGrandParent = path.dirname(scriptParent);
 
-  if (isNumericName(cwdBase) && parentEntries.length > 0) {
-    return parent;
+  candidates.add(cwd);
+  candidates.add(path.dirname(cwd));
+  candidates.add(scriptDir);
+  candidates.add(scriptParent);
+  candidates.add(scriptGrandParent);
+
+  for (const candidate of candidates) {
+    if (hasNumericArtistDirs(candidate)) {
+      return candidate;
+    }
+  }
+
+  const cwdBase = path.basename(cwd);
+  if (isNumericName(cwdBase)) {
+    return path.dirname(cwd);
   }
 
   return cwd;

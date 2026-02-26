@@ -36,6 +36,8 @@ node server.js
 
 Open `http://localhost:4579`.
 
+`WORKS_ROOT` is auto-detected. If `album-app` sits inside one artist folder (for example `Works/119889363/album-app`), it will automatically scan the parent `Works/` directory.
+
 ### Optional
 If you run from a different directory, set `WORKS_ROOT`:
 
