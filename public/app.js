@@ -31,6 +31,58 @@ function escapeHtml(text) {
     .replaceAll("'", '&#39;');
 }
 
+function normalizeHref(rawHref) {
+  if (!rawHref) return null;
+  const trimmed = String(rawHref).trim();
+  if (!trimmed) return null;
+
+  try {
+    const url = new URL(trimmed, window.location.origin);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return null;
+    }
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
+function sanitizeCaptionHtml(input) {
+  const source = input == null ? '' : String(input);
+  if (!source.trim()) return '-';
+
+  const template = document.createElement('template');
+  template.innerHTML = source;
+
+  function sanitizeNode(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return escapeHtml(node.textContent || '');
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return '';
+    }
+
+    const tag = node.tagName.toLowerCase();
+    if (tag === 'br') {
+      return '<br>';
+    }
+
+    const children = Array.from(node.childNodes).map(sanitizeNode).join('');
+
+    if (tag === 'a') {
+      const href = normalizeHref(node.getAttribute('href'));
+      if (!href) return children;
+      return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${children || escapeHtml(href)}</a>`;
+    }
+
+    return children;
+  }
+
+  const html = Array.from(template.content.childNodes).map(sanitizeNode).join('');
+  return html || '-';
+}
+
 function setCurrentItems() {
   if (!state.library) return;
   if (state.selectedArtist === 'all') {
@@ -103,7 +155,7 @@ function renderInspector(item) {
     <div class="item"><div class="label">Likes (bookmarks)</div><div class="value">${escapeHtml(item.likes ?? '-')}</div></div>
     <div class="item"><div class="label">Views</div><div class="value">${escapeHtml(item.views ?? '-')}</div></div>
     <div class="item"><div class="label">Tags</div><div class="value">${tagsHtml}</div></div>
-    <div class="item"><div class="label">Caption</div><div class="value">${escapeHtml(item.caption || '-')}</div></div>
+    <div class="item"><div class="label">Caption</div><div class="value">${sanitizeCaptionHtml(item.caption)}</div></div>
   `;
 
   const comments = item.comments || [];
