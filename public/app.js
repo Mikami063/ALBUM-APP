@@ -5,6 +5,7 @@ const state = {
   currentIndex: 0,
   page: 1,
   perPage: '100',
+  tagFilter: '',
   viewMode: 'focus',
   gridColumns: 5,
   gridScrollTop: 0,
@@ -12,6 +13,9 @@ const state = {
 };
 
 const artistSelect = document.getElementById('artist-select');
+const tagFilterInput = document.getElementById('tag-filter-input');
+const applyTagBtn = document.getElementById('apply-tag-btn');
+const clearTagBtn = document.getElementById('clear-tag-btn');
 const perPageSelect = document.getElementById('per-page-select');
 const prevPageBtn = document.getElementById('prev-page-btn');
 const nextPageBtn = document.getElementById('next-page-btn');
@@ -164,6 +168,12 @@ function renderPagingControls() {
   prevPageBtn.disabled = currentPage <= 1 || totalItems === 0;
   nextPageBtn.disabled = currentPage >= totalPages || totalItems === 0;
   perPageSelect.value = String(state.library?.perPage || state.perPage);
+  tagFilterInput.value = state.tagFilter;
+}
+
+function getTagSummary() {
+  if (!state.tagFilter) return '';
+  return ` | Tag: ${state.tagFilter}`;
 }
 
 function renderList() {
@@ -365,7 +375,7 @@ function renderEmpty() {
   const shown = state.selectedArtist === 'all'
     ? (state.library?.totals?.pictures || 0)
     : (state.library?.artistCounts?.[state.selectedArtist] || 0);
-  countsEl.textContent = `Artists: ${artists} | Pictures: ${totalPictures} | Showing: ${shown}`;
+  countsEl.textContent = `Artists: ${artists} | Pictures: ${totalPictures} | Showing: ${shown}${getTagSummary()}`;
   metaEl.innerHTML = '<p>No metadata.</p>';
   commentsEl.innerHTML = '<p>No comments.</p>';
   listEl.innerHTML = '';
@@ -396,7 +406,7 @@ function renderCurrent(options = {}) {
   const perPageValue = perPage === 'all' ? totalItems : Number(perPage);
   const from = totalItems ? (page - 1) * perPageValue + 1 : 0;
   const to = totalItems ? from + state.currentItems.length - 1 : 0;
-  countsEl.textContent = `Artists: ${state.library.totals.artists} | Pictures: ${state.library.totals.pictures} | Showing ${from}-${to} of ${totalItems}`;
+  countsEl.textContent = `Artists: ${state.library.totals.artists} | Pictures: ${state.library.totals.pictures} | Showing ${from}-${to} of ${totalItems}${getTagSummary()}`;
 
   if (state.viewMode === 'grid') {
     if (!preserveGrid) {
@@ -426,6 +436,9 @@ async function loadLibrary() {
   params.set('artist', state.selectedArtist);
   params.set('page', String(state.page));
   params.set('perPage', state.perPage);
+  if (state.tagFilter) {
+    params.set('tag', state.tagFilter);
+  }
 
   const res = await fetch(`/api/library?${params.toString()}`);
   if (!res.ok) throw new Error('Failed to load library');
@@ -439,6 +452,7 @@ async function loadLibrary() {
   } else if (!state.perPage) {
     state.perPage = '100';
   }
+  state.tagFilter = String(state.library.tag || state.tagFilter || '').trim();
 
   renderArtistOptions();
   setCurrentItems();
@@ -469,6 +483,40 @@ perPageSelect.addEventListener('change', () => {
     countsEl.textContent = 'Failed to load library.';
     renderEmpty();
   });
+});
+
+applyTagBtn.addEventListener('click', () => {
+  state.tagFilter = String(tagFilterInput.value || '').trim();
+  state.page = 1;
+  state.currentIndex = 0;
+  state.gridScrollTop = 0;
+  state.gridScrollLeft = 0;
+  loadLibrary().catch((error) => {
+    console.error(error);
+    countsEl.textContent = 'Failed to load library.';
+    renderEmpty();
+  });
+});
+
+clearTagBtn.addEventListener('click', () => {
+  if (!state.tagFilter && !String(tagFilterInput.value || '').trim()) return;
+  state.tagFilter = '';
+  tagFilterInput.value = '';
+  state.page = 1;
+  state.currentIndex = 0;
+  state.gridScrollTop = 0;
+  state.gridScrollLeft = 0;
+  loadLibrary().catch((error) => {
+    console.error(error);
+    countsEl.textContent = 'Failed to load library.';
+    renderEmpty();
+  });
+});
+
+tagFilterInput.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  applyTagBtn.click();
 });
 
 prevPageBtn.addEventListener('click', () => {

@@ -64,7 +64,8 @@ h3 {
 
 select,
 button,
-input[type="range"] {
+input[type="range"],
+input[type="text"] {
   width: 100%;
   border: 1px solid var(--line);
   background: #fff;
@@ -214,6 +215,24 @@ button {
   margin: 10px 0;
   color: var(--muted);
   font-size: 13px;
+}
+
+.tag-filter-controls {
+  margin-top: 8px;
+}
+
+.tag-filter-controls label {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.tag-filter-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 8px;
 }
 
 .paging-controls {
