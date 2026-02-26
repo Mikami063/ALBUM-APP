@@ -235,6 +235,16 @@ function itemMatchesTags(item, normalizedTags) {
   return normalizedTags.every((needle) => lowered.some((tag) => tag.includes(needle)));
 }
 
+function parseTitleFilter(rawTitle) {
+  return String(rawTitle || '').trim().toLowerCase();
+}
+
+function itemMatchesTitle(item, normalizedTitle) {
+  if (!normalizedTitle) return true;
+  const title = String(item?.title || '').toLowerCase();
+  return title.includes(normalizedTitle);
+}
+
 function sendJson(res, data, status = 200) {
   const payload = JSON.stringify(data);
   res.writeHead(status, {
@@ -292,12 +302,14 @@ const server = http.createServer((req, res) => {
     const requestedPage = parsePage(requestUrl.searchParams.get('page'));
     const perPageInfo = parsePerPage(requestUrl.searchParams.get('perPage'));
     const tags = parseTagFilters(requestUrl.searchParams);
+    const title = parseTitleFilter(requestUrl.searchParams.get('title'));
     const library = scanLibrary();
 
     const validArtist = selectedArtist === 'all' || library.artistList.includes(selectedArtist);
     const artist = validArtist ? selectedArtist : 'all';
     const sourceItems = (artist === 'all' ? library.allItems : library.itemsByArtist[artist] || [])
-      .filter((item) => itemMatchesTags(item, tags));
+      .filter((item) => itemMatchesTags(item, tags))
+      .filter((item) => itemMatchesTitle(item, title));
     const totalItems = sourceItems.length;
     const perPage = perPageInfo.mode === 'all' ? totalItems || 1 : perPageInfo.value;
     const totalPages = perPageInfo.mode === 'all' ? 1 : Math.max(1, Math.ceil(totalItems / perPage));
@@ -314,6 +326,7 @@ const server = http.createServer((req, res) => {
       selectedArtist: artist,
       tag: tags[0] || '',
       tags,
+      title,
       page,
       perPage: perPageInfo.mode === 'all' ? 'all' : perPage,
       totalItems,

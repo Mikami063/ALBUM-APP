@@ -6,6 +6,7 @@ const state = {
   page: 1,
   perPage: '100',
   tagFilters: [],
+  titleQuery: '',
   viewMode: 'focus',
   gridColumns: 5,
   gridScrollTop: 0,
@@ -13,6 +14,9 @@ const state = {
 };
 
 const artistSelect = document.getElementById('artist-select');
+const titleSearchInput = document.getElementById('title-search-input');
+const applyTitleBtn = document.getElementById('apply-title-btn');
+const clearTitleBtn = document.getElementById('clear-title-btn');
 const tagFilterInput = document.getElementById('tag-filter-input');
 const activeTagListEl = document.getElementById('active-tag-list');
 const applyTagBtn = document.getElementById('apply-tag-btn');
@@ -128,11 +132,20 @@ function itemMatchesAllTags(item, normalizedTags) {
   return normalizedTags.every((needle) => lowered.some((tag) => tag.includes(needle)));
 }
 
+function itemMatchesTitle(item, normalizedTitle) {
+  if (!normalizedTitle) return true;
+  const title = String(item?.title || '').toLowerCase();
+  return title.includes(normalizedTitle);
+}
+
 function getFallbackTotalItems() {
   const baseItemsUnfiltered = state.selectedArtist === 'all'
     ? (state.library?.allItems || [])
     : (state.library?.itemsByArtist?.[state.selectedArtist] || []);
-  return baseItemsUnfiltered.filter((item) => itemMatchesAllTags(item, state.tagFilters)).length;
+  return baseItemsUnfiltered
+    .filter((item) => itemMatchesAllTags(item, state.tagFilters))
+    .filter((item) => itemMatchesTitle(item, state.titleQuery))
+    .length;
 }
 
 function setCurrentItems() {
@@ -143,7 +156,9 @@ function setCurrentItems() {
     const baseItemsUnfiltered = state.selectedArtist === 'all'
       ? (state.library?.allItems || [])
       : (state.library?.itemsByArtist?.[state.selectedArtist] || []);
-    const baseItems = baseItemsUnfiltered.filter((item) => itemMatchesAllTags(item, state.tagFilters));
+    const baseItems = baseItemsUnfiltered
+      .filter((item) => itemMatchesAllTags(item, state.tagFilters))
+      .filter((item) => itemMatchesTitle(item, state.titleQuery));
     const totalItems = baseItems.length;
     const perPageRaw = state.library?.perPage || state.perPage;
     const perPage = perPageRaw === 'all' ? (totalItems || 1) : Number(perPageRaw);
@@ -194,12 +209,18 @@ function renderPagingControls() {
   prevPageBtn.disabled = currentPage <= 1 || totalItems === 0;
   nextPageBtn.disabled = currentPage >= totalPages || totalItems === 0;
   perPageSelect.value = String(state.library?.perPage || state.perPage);
+  titleSearchInput.value = state.titleQuery;
   renderTagFilterChips();
 }
 
 function getTagSummary() {
   if (!state.tagFilters.length) return '';
   return ` | Tags: ${state.tagFilters.join(', ')}`;
+}
+
+function getTitleSummary() {
+  if (!state.titleQuery) return '';
+  return ` | Title: ${state.titleQuery}`;
 }
 
 function renderTagFilterChips() {
@@ -427,7 +448,7 @@ function renderEmpty() {
   const artists = state.library?.totals?.artists || 0;
   const totalPictures = state.library?.totals?.pictures || 0;
   const shown = state.library?.totalItems ?? getFallbackTotalItems();
-  countsEl.textContent = `Artists: ${artists} | Pictures: ${totalPictures} | Showing: ${shown}${getTagSummary()}`;
+  countsEl.textContent = `Artists: ${artists} | Pictures: ${totalPictures} | Showing: ${shown}${getTagSummary()}${getTitleSummary()}`;
   metaEl.innerHTML = '<p>No metadata.</p>';
   commentsEl.innerHTML = '<p>No comments.</p>';
   listEl.innerHTML = '';
@@ -456,7 +477,7 @@ function renderCurrent(options = {}) {
   const perPageValue = perPage === 'all' ? totalItems : Number(perPage);
   const from = totalItems ? (page - 1) * perPageValue + 1 : 0;
   const to = totalItems ? from + state.currentItems.length - 1 : 0;
-  countsEl.textContent = `Artists: ${state.library.totals.artists} | Pictures: ${state.library.totals.pictures} | Showing ${from}-${to} of ${totalItems}${getTagSummary()}`;
+  countsEl.textContent = `Artists: ${state.library.totals.artists} | Pictures: ${state.library.totals.pictures} | Showing ${from}-${to} of ${totalItems}${getTagSummary()}${getTitleSummary()}`;
 
   if (state.viewMode === 'grid') {
     if (!preserveGrid) {
@@ -487,6 +508,7 @@ async function loadLibrary() {
   params.set('page', String(state.page));
   params.set('perPage', state.perPage);
   state.tagFilters.forEach((tag) => params.append('tag', tag));
+  if (state.titleQuery) params.set('title', state.titleQuery);
 
   const res = await fetch(`/api/library?${params.toString()}`);
   if (!res.ok) throw new Error('Failed to load library');
@@ -505,6 +527,7 @@ async function loadLibrary() {
   } else if (state.library.tag) {
     state.tagFilters = normalizeTagFilters([state.library.tag]);
   }
+  state.titleQuery = String(state.library.title || state.titleQuery || '').trim().toLowerCase();
 
   renderArtistOptions();
   setCurrentItems();
@@ -535,6 +558,42 @@ perPageSelect.addEventListener('change', () => {
     countsEl.textContent = 'Failed to load library.';
     renderEmpty();
   });
+});
+
+applyTitleBtn.addEventListener('click', () => {
+  const nextTitleQuery = String(titleSearchInput.value || '').trim().toLowerCase();
+  if (state.titleQuery === nextTitleQuery) return;
+  state.titleQuery = nextTitleQuery;
+  state.page = 1;
+  state.currentIndex = 0;
+  state.gridScrollTop = 0;
+  state.gridScrollLeft = 0;
+  loadLibrary().catch((error) => {
+    console.error(error);
+    countsEl.textContent = 'Failed to load library.';
+    renderEmpty();
+  });
+});
+
+clearTitleBtn.addEventListener('click', () => {
+  if (!state.titleQuery && !String(titleSearchInput.value || '').trim()) return;
+  state.titleQuery = '';
+  titleSearchInput.value = '';
+  state.page = 1;
+  state.currentIndex = 0;
+  state.gridScrollTop = 0;
+  state.gridScrollLeft = 0;
+  loadLibrary().catch((error) => {
+    console.error(error);
+    countsEl.textContent = 'Failed to load library.';
+    renderEmpty();
+  });
+});
+
+titleSearchInput.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  applyTitleBtn.click();
 });
 
 applyTagBtn.addEventListener('click', () => {

@@ -5,6 +5,7 @@ Local viewer for gallery-dl Pixiv folders with inspector metadata.
 ## Features
 - Artist filter (`All artists` + each artist ID)
 - Multi-tag filter (add/remove tags, case-insensitive substring; click tags in inspector to add)
+- Title search (case-insensitive substring)
 - Pagination with per-page selector (`20`, `50`, `100`, `200`, `500`, `All`)
 - Arrow key navigation (`Left` / `Right`)
 - Right inspector panel with:
@@ -53,3 +54,4 @@ WORKS_ROOT=/path/to/Pixiv/Works node server.js
 - `page` (1-based page number)
 - `perPage` (`20`, `50`, `100`, `200`, `500`, or `all`)
 - `tag` (repeatable; each value is a case-insensitive substring filter against tags)
+- `title` (case-insensitive substring filter against artwork title)

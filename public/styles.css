@@ -217,6 +217,24 @@ button {
   font-size: 13px;
 }
 
+.title-search-controls {
+  margin-top: 8px;
+}
+
+.title-search-controls label {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.title-search-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 8px;
+}
+
 .tag-filter-controls {
   margin-top: 8px;
 }
