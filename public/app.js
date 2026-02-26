@@ -7,6 +7,7 @@ const state = {
   gridColumns: 5,
   gridScrollTop: 0,
   gridScrollLeft: 0,
+  lastGridIndex: 0,
 };
 
 const artistSelect = document.getElementById('artist-select');
@@ -247,6 +248,7 @@ function setViewMode(nextMode) {
   if (state.viewMode === 'grid') {
     state.gridScrollTop = gridEl.scrollTop;
     state.gridScrollLeft = gridEl.scrollLeft;
+    state.lastGridIndex = state.currentIndex;
   }
 
   state.viewMode = nextMode;
@@ -261,8 +263,15 @@ function setViewMode(nextMode) {
 
   if (nextMode === 'grid') {
     window.requestAnimationFrame(() => {
-      gridEl.scrollTop = state.gridScrollTop;
-      gridEl.scrollLeft = state.gridScrollLeft;
+      if (state.currentIndex === state.lastGridIndex) {
+        gridEl.scrollTop = state.gridScrollTop;
+        gridEl.scrollLeft = state.gridScrollLeft;
+      } else {
+        const activeTile = gridEl.querySelector('.grid-tile.active');
+        if (activeTile) {
+          activeTile.scrollIntoView({ block: 'center', inline: 'nearest' });
+        }
+      }
     });
   }
 }
@@ -327,6 +336,9 @@ async function loadLibrary() {
 artistSelect.addEventListener('change', () => {
   state.selectedArtist = artistSelect.value;
   state.currentIndex = 0;
+  state.lastGridIndex = 0;
+  state.gridScrollTop = 0;
+  state.gridScrollLeft = 0;
   setCurrentItems();
   renderCurrent();
 });
