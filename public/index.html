@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pixiv Album Viewer</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="left-panel">
+      <h1>Album Viewer</h1>
+      <label for="artist-select">Artist</label>
+      <select id="artist-select"></select>
+      <div id="counts" class="counts"></div>
+      <div id="list" class="image-list"></div>
+    </aside>
+
+    <main class="viewer-panel">
+      <div class="viewer-toolbar">
+        <button id="prev-btn" type="button">Prev</button>
+        <span id="position"></span>
+        <button id="next-btn" type="button">Next</button>
+      </div>
+      <div class="image-wrap">
+        <img id="main-image" alt="Artwork">
+      </div>
+      <p class="hint">Keyboard: Left/Right arrows navigate images.</p>
+    </main>
+
+    <aside class="inspect-panel">
+      <h2>Inspect</h2>
+      <div id="meta" class="meta"></div>
+      <h3>Comments</h3>
+      <div id="comments" class="comments"></div>
+    </aside>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,195 @@
+const state = {
+  library: null,
+  selectedArtist: 'all',
+  currentItems: [],
+  currentIndex: 0,
+};
+
+const artistSelect = document.getElementById('artist-select');
+const listEl = document.getElementById('list');
+const countsEl = document.getElementById('counts');
+const mainImage = document.getElementById('main-image');
+const positionEl = document.getElementById('position');
+const metaEl = document.getElementById('meta');
+const commentsEl = document.getElementById('comments');
+const prevBtn = document.getElementById('prev-btn');
+const nextBtn = document.getElementById('next-btn');
+
+function formatDate(input) {
+  if (!input) return '-';
+  const date = new Date(input);
+  if (Number.isNaN(date.getTime())) return String(input);
+  return date.toLocaleString();
+}
+
+function escapeHtml(text) {
+  return String(text)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function setCurrentItems() {
+  if (!state.library) return;
+  if (state.selectedArtist === 'all') {
+    state.currentItems = state.library.allItems || [];
+  } else {
+    state.currentItems = state.library.itemsByArtist[state.selectedArtist] || [];
+  }
+
+  if (state.currentIndex >= state.currentItems.length) {
+    state.currentIndex = 0;
+  }
+}
+
+function renderArtistOptions() {
+  const artists = state.library.artistList || [];
+  artistSelect.innerHTML = '';
+
+  const allOption = document.createElement('option');
+  allOption.value = 'all';
+  allOption.textContent = `All artists (${state.library.totals.pictures})`;
+  artistSelect.appendChild(allOption);
+
+  artists.forEach((artistId) => {
+    const count = (state.library.itemsByArtist[artistId] || []).length;
+    const option = document.createElement('option');
+    option.value = artistId;
+    option.textContent = `${artistId} (${count})`;
+    artistSelect.appendChild(option);
+  });
+
+  artistSelect.value = state.selectedArtist;
+}
+
+function renderList() {
+  listEl.innerHTML = '';
+
+  state.currentItems.forEach((item, index) => {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = `image-row ${index === state.currentIndex ? 'active' : ''}`;
+
+    row.innerHTML = `
+      <img src="${item.imageUrl}" alt="">
+      <div>
+        <div class="row-title">${escapeHtml(item.title || '(Untitled)')}</div>
+        <div class="row-meta">ID ${escapeHtml(item.id ?? '-')} | ${escapeHtml(item.artistId)}</div>
+      </div>
+    `;
+
+    row.addEventListener('click', () => {
+      state.currentIndex = index;
+      renderCurrent();
+    });
+
+    listEl.appendChild(row);
+  });
+}
+
+function renderInspector(item) {
+  const tags = item.tags || [];
+  const tagsHtml = tags.length
+    ? `<div class="tags">${tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>`
+    : '-';
+
+  metaEl.innerHTML = `
+    <div class="item"><div class="label">Title</div><div class="value">${escapeHtml(item.title || '(Untitled)')}</div></div>
+    <div class="item"><div class="label">Artist ID</div><div class="value">${escapeHtml(item.artistId)}</div></div>
+    <div class="item"><div class="label">Picture ID</div><div class="value">${escapeHtml(item.id ?? '-')}</div></div>
+    <div class="item"><div class="label">Created</div><div class="value">${escapeHtml(formatDate(item.createDate))}</div></div>
+    <div class="item"><div class="label">Likes (bookmarks)</div><div class="value">${escapeHtml(item.likes ?? '-')}</div></div>
+    <div class="item"><div class="label">Views</div><div class="value">${escapeHtml(item.views ?? '-')}</div></div>
+    <div class="item"><div class="label">Tags</div><div class="value">${tagsHtml}</div></div>
+    <div class="item"><div class="label">Caption</div><div class="value">${escapeHtml(item.caption || '-')}</div></div>
+  `;
+
+  const comments = item.comments || [];
+  if (!comments.length) {
+    commentsEl.innerHTML = '<p>No comments.</p>';
+    return;
+  }
+
+  commentsEl.innerHTML = comments
+    .map((comment) => {
+      const username = comment?.user?.name || 'Unknown';
+      const content = comment?.comment || '[stamp or empty comment]';
+      return `
+        <div class="comment">
+          <div class="comment-user">${escapeHtml(username)} | ${escapeHtml(formatDate(comment?.date))}</div>
+          <div class="comment-text">${escapeHtml(content)}</div>
+        </div>
+      `;
+    })
+    .join('');
+}
+
+function renderEmpty() {
+  mainImage.removeAttribute('src');
+  mainImage.alt = 'No image';
+  positionEl.textContent = '0 / 0';
+  countsEl.textContent = 'No pictures found.';
+  metaEl.innerHTML = '<p>No metadata.</p>';
+  commentsEl.innerHTML = '<p>No comments.</p>';
+  listEl.innerHTML = '';
+}
+
+function renderCurrent() {
+  if (!state.currentItems.length) {
+    renderEmpty();
+    return;
+  }
+
+  const item = state.currentItems[state.currentIndex];
+  mainImage.src = item.imageUrl;
+  mainImage.alt = item.title || 'Artwork';
+
+  positionEl.textContent = `${state.currentIndex + 1} / ${state.currentItems.length}`;
+  countsEl.textContent = `Artists: ${state.library.totals.artists} | Pictures: ${state.library.totals.pictures}`;
+
+  renderList();
+  renderInspector(item);
+}
+
+function move(delta) {
+  if (!state.currentItems.length) return;
+  const length = state.currentItems.length;
+  state.currentIndex = (state.currentIndex + delta + length) % length;
+  renderCurrent();
+}
+
+async function loadLibrary() {
+  const res = await fetch('/api/library');
+  if (!res.ok) throw new Error('Failed to load library');
+  state.library = await res.json();
+
+  renderArtistOptions();
+  setCurrentItems();
+  renderCurrent();
+}
+
+artistSelect.addEventListener('change', () => {
+  state.selectedArtist = artistSelect.value;
+  state.currentIndex = 0;
+  setCurrentItems();
+  renderCurrent();
+});
+
+prevBtn.addEventListener('click', () => move(-1));
+nextBtn.addEventListener('click', () => move(1));
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'ArrowLeft') {
+    move(-1);
+  } else if (event.key === 'ArrowRight') {
+    move(1);
+  }
+});
+
+loadLibrary().catch((error) => {
+  console.error(error);
+  countsEl.textContent = 'Failed to load library.';
+  renderEmpty();
+});
