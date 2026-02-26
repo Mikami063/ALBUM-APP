@@ -5,7 +5,7 @@ const state = {
   currentIndex: 0,
   page: 1,
   perPage: '100',
-  tagFilter: '',
+  tagFilters: [],
   viewMode: 'focus',
   gridColumns: 5,
   gridScrollTop: 0,
@@ -14,6 +14,7 @@ const state = {
 
 const artistSelect = document.getElementById('artist-select');
 const tagFilterInput = document.getElementById('tag-filter-input');
+const activeTagListEl = document.getElementById('active-tag-list');
 const applyTagBtn = document.getElementById('apply-tag-btn');
 const clearTagBtn = document.getElementById('clear-tag-btn');
 const perPageSelect = document.getElementById('per-page-select');
@@ -104,14 +105,45 @@ function sanitizeCaptionHtml(input) {
   return html || '-';
 }
 
+function normalizeTag(rawTag) {
+  return String(rawTag || '').trim().toLowerCase();
+}
+
+function normalizeTagFilters(rawTags) {
+  const seen = new Set();
+  const normalized = [];
+  for (const rawTag of rawTags || []) {
+    const tag = normalizeTag(rawTag);
+    if (!tag || seen.has(tag)) continue;
+    seen.add(tag);
+    normalized.push(tag);
+  }
+  return normalized;
+}
+
+function itemMatchesAllTags(item, normalizedTags) {
+  if (!normalizedTags.length) return true;
+  const tags = Array.isArray(item?.tags) ? item.tags : [];
+  const lowered = tags.map((tag) => String(tag).toLowerCase());
+  return normalizedTags.every((needle) => lowered.some((tag) => tag.includes(needle)));
+}
+
+function getFallbackTotalItems() {
+  const baseItemsUnfiltered = state.selectedArtist === 'all'
+    ? (state.library?.allItems || [])
+    : (state.library?.itemsByArtist?.[state.selectedArtist] || []);
+  return baseItemsUnfiltered.filter((item) => itemMatchesAllTags(item, state.tagFilters)).length;
+}
+
 function setCurrentItems() {
   const pagedItems = state.library?.items;
   if (Array.isArray(pagedItems)) {
     state.currentItems = pagedItems;
   } else {
-    const baseItems = state.selectedArtist === 'all'
+    const baseItemsUnfiltered = state.selectedArtist === 'all'
       ? (state.library?.allItems || [])
       : (state.library?.itemsByArtist?.[state.selectedArtist] || []);
+    const baseItems = baseItemsUnfiltered.filter((item) => itemMatchesAllTags(item, state.tagFilters));
     const totalItems = baseItems.length;
     const perPageRaw = state.library?.perPage || state.perPage;
     const perPage = perPageRaw === 'all' ? (totalItems || 1) : Number(perPageRaw);
@@ -149,13 +181,7 @@ function renderArtistOptions() {
 
 function renderPagingControls() {
   const fallbackPerPageRaw = state.library?.perPage || state.perPage;
-  const fallbackTotalItems = state.selectedArtist === 'all'
-    ? (state.library?.totals?.pictures || 0)
-    : (
-      state.library?.artistCounts?.[state.selectedArtist]
-      || state.library?.itemsByArtist?.[state.selectedArtist]?.length
-      || 0
-    );
+  const fallbackTotalItems = getFallbackTotalItems();
   const fallbackPerPage = fallbackPerPageRaw === 'all'
     ? (fallbackTotalItems || 1)
     : Number(fallbackPerPageRaw);
@@ -168,12 +194,40 @@ function renderPagingControls() {
   prevPageBtn.disabled = currentPage <= 1 || totalItems === 0;
   nextPageBtn.disabled = currentPage >= totalPages || totalItems === 0;
   perPageSelect.value = String(state.library?.perPage || state.perPage);
-  tagFilterInput.value = state.tagFilter;
+  renderTagFilterChips();
 }
 
 function getTagSummary() {
-  if (!state.tagFilter) return '';
-  return ` | Tag: ${state.tagFilter}`;
+  if (!state.tagFilters.length) return '';
+  return ` | Tags: ${state.tagFilters.join(', ')}`;
+}
+
+function renderTagFilterChips() {
+  activeTagListEl.innerHTML = '';
+  state.tagFilters.forEach((tag) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'tag-filter-chip';
+    chip.dataset.tag = tag;
+    chip.innerHTML = `<span>${escapeHtml(tag)}</span><span class="remove">x</span>`;
+    activeTagListEl.appendChild(chip);
+  });
+}
+
+function addTagFilter(rawTag) {
+  const normalized = normalizeTag(rawTag);
+  if (!normalized) return false;
+  if (state.tagFilters.includes(normalized)) return false;
+  state.tagFilters = [...state.tagFilters, normalized];
+  return true;
+}
+
+function removeTagFilter(rawTag) {
+  const normalized = normalizeTag(rawTag);
+  const next = state.tagFilters.filter((tag) => tag !== normalized);
+  if (next.length === state.tagFilters.length) return false;
+  state.tagFilters = next;
+  return true;
 }
 
 function renderList() {
@@ -295,7 +349,7 @@ function focusGridIndex(index) {
 function renderInspector(item) {
   const tags = item.tags || [];
   const tagsHtml = tags.length
-    ? `<div class="tags">${tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>`
+    ? `<div class="tags">${tags.map((t) => `<button type="button" class="inspector-tag" data-tag="${escapeHtml(t)}">${escapeHtml(t)}</button>`).join('')}</div>`
     : '-';
 
   metaEl.innerHTML = `
@@ -372,9 +426,7 @@ function renderEmpty() {
   positionEl.textContent = '0 / 0';
   const artists = state.library?.totals?.artists || 0;
   const totalPictures = state.library?.totals?.pictures || 0;
-  const shown = state.selectedArtist === 'all'
-    ? (state.library?.totals?.pictures || 0)
-    : (state.library?.artistCounts?.[state.selectedArtist] || 0);
+  const shown = state.library?.totalItems ?? getFallbackTotalItems();
   countsEl.textContent = `Artists: ${artists} | Pictures: ${totalPictures} | Showing: ${shown}${getTagSummary()}`;
   metaEl.innerHTML = '<p>No metadata.</p>';
   commentsEl.innerHTML = '<p>No comments.</p>';
@@ -397,9 +449,7 @@ function renderCurrent(options = {}) {
 
   positionEl.textContent = `${state.currentIndex + 1} / ${state.currentItems.length}`;
   const totalItems = state.library.totalItems ?? (
-    state.selectedArtist === 'all'
-      ? (state.library.totals?.pictures || 0)
-      : (state.library.artistCounts?.[state.selectedArtist] || 0)
+    getFallbackTotalItems()
   );
   const page = state.library.page || 1;
   const perPage = state.library.perPage || state.perPage;
@@ -436,9 +486,7 @@ async function loadLibrary() {
   params.set('artist', state.selectedArtist);
   params.set('page', String(state.page));
   params.set('perPage', state.perPage);
-  if (state.tagFilter) {
-    params.set('tag', state.tagFilter);
-  }
+  state.tagFilters.forEach((tag) => params.append('tag', tag));
 
   const res = await fetch(`/api/library?${params.toString()}`);
   if (!res.ok) throw new Error('Failed to load library');
@@ -452,7 +500,11 @@ async function loadLibrary() {
   } else if (!state.perPage) {
     state.perPage = '100';
   }
-  state.tagFilter = String(state.library.tag || state.tagFilter || '').trim();
+  if (Array.isArray(state.library.tags)) {
+    state.tagFilters = normalizeTagFilters(state.library.tags);
+  } else if (state.library.tag) {
+    state.tagFilters = normalizeTagFilters([state.library.tag]);
+  }
 
   renderArtistOptions();
   setCurrentItems();
@@ -486,7 +538,9 @@ perPageSelect.addEventListener('change', () => {
 });
 
 applyTagBtn.addEventListener('click', () => {
-  state.tagFilter = String(tagFilterInput.value || '').trim();
+  const changed = addTagFilter(tagFilterInput.value);
+  if (!changed) return;
+  tagFilterInput.value = '';
   state.page = 1;
   state.currentIndex = 0;
   state.gridScrollTop = 0;
@@ -499,8 +553,8 @@ applyTagBtn.addEventListener('click', () => {
 });
 
 clearTagBtn.addEventListener('click', () => {
-  if (!state.tagFilter && !String(tagFilterInput.value || '').trim()) return;
-  state.tagFilter = '';
+  if (!state.tagFilters.length) return;
+  state.tagFilters = [];
   tagFilterInput.value = '';
   state.page = 1;
   state.currentIndex = 0;
@@ -519,6 +573,38 @@ tagFilterInput.addEventListener('keydown', (event) => {
   applyTagBtn.click();
 });
 
+activeTagListEl.addEventListener('click', (event) => {
+  const chip = event.target.closest('.tag-filter-chip');
+  if (!chip) return;
+  const changed = removeTagFilter(chip.dataset.tag || '');
+  if (!changed) return;
+  state.page = 1;
+  state.currentIndex = 0;
+  state.gridScrollTop = 0;
+  state.gridScrollLeft = 0;
+  loadLibrary().catch((error) => {
+    console.error(error);
+    countsEl.textContent = 'Failed to load library.';
+    renderEmpty();
+  });
+});
+
+metaEl.addEventListener('click', (event) => {
+  const tagButton = event.target.closest('.inspector-tag');
+  if (!tagButton) return;
+  const changed = addTagFilter(tagButton.dataset.tag || '');
+  if (!changed) return;
+  state.page = 1;
+  state.currentIndex = 0;
+  state.gridScrollTop = 0;
+  state.gridScrollLeft = 0;
+  loadLibrary().catch((error) => {
+    console.error(error);
+    countsEl.textContent = 'Failed to load library.';
+    renderEmpty();
+  });
+});
+
 prevPageBtn.addEventListener('click', () => {
   if (state.page <= 1) return;
   state.page -= 1;
@@ -533,15 +619,7 @@ prevPageBtn.addEventListener('click', () => {
 });
 
 nextPageBtn.addEventListener('click', () => {
-  const totalItems = state.library?.totalItems ?? (
-    state.selectedArtist === 'all'
-      ? (state.library?.totals?.pictures || 0)
-      : (
-        state.library?.artistCounts?.[state.selectedArtist]
-        || state.library?.itemsByArtist?.[state.selectedArtist]?.length
-        || 0
-      )
-  );
+  const totalItems = state.library?.totalItems ?? getFallbackTotalItems();
   const perPageRaw = state.library?.perPage || state.perPage;
   const perPage = perPageRaw === 'all' ? (totalItems || 1) : Number(perPageRaw);
   const totalPages = state.library?.totalPages || Math.max(1, Math.ceil(totalItems / perPage));

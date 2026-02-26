@@ -235,6 +235,41 @@ button {
   margin-top: 8px;
 }
 
+.active-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.tag-filter-chip,
+.inspector-tag {
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff8f2;
+  color: var(--text);
+  padding: 4px 10px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.tag-filter-chip {
+  cursor: pointer;
+}
+
+.tag-filter-chip .remove {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.inspector-tag {
+  cursor: pointer;
+}
+
 .paging-controls {
   margin-top: 8px;
 }
