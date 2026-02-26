@@ -7,7 +7,6 @@ const state = {
   gridColumns: 5,
   gridScrollTop: 0,
   gridScrollLeft: 0,
-  lastGridIndex: 0,
 };
 
 const artistSelect = document.getElementById('artist-select');
@@ -192,6 +191,32 @@ function updateGridSelection() {
   }
 }
 
+function scrollGridToIndex(index) {
+  const tile = gridEl.children[index];
+  if (!tile) return;
+
+  const top = tile.offsetTop - (gridEl.clientHeight - tile.offsetHeight) / 2;
+  const left = tile.offsetLeft - (gridEl.clientWidth - tile.offsetWidth) / 2;
+
+  gridEl.scrollTop = Math.max(0, top);
+  gridEl.scrollLeft = Math.max(0, left);
+}
+
+function focusGridIndex(index) {
+  let attempts = 0;
+  const maxAttempts = 4;
+
+  function step() {
+    scrollGridToIndex(index);
+    attempts += 1;
+    if (attempts < maxAttempts) {
+      window.requestAnimationFrame(step);
+    }
+  }
+
+  window.requestAnimationFrame(step);
+}
+
 function renderInspector(item) {
   const tags = item.tags || [];
   const tagsHtml = tags.length
@@ -248,7 +273,6 @@ function setViewMode(nextMode) {
   if (state.viewMode === 'grid') {
     state.gridScrollTop = gridEl.scrollTop;
     state.gridScrollLeft = gridEl.scrollLeft;
-    state.lastGridIndex = state.currentIndex;
   }
 
   state.viewMode = nextMode;
@@ -262,17 +286,7 @@ function setViewMode(nextMode) {
   }
 
   if (nextMode === 'grid') {
-    window.requestAnimationFrame(() => {
-      if (state.currentIndex === state.lastGridIndex) {
-        gridEl.scrollTop = state.gridScrollTop;
-        gridEl.scrollLeft = state.gridScrollLeft;
-      } else {
-        const activeTile = gridEl.querySelector('.grid-tile.active');
-        if (activeTile) {
-          activeTile.scrollIntoView({ block: 'center', inline: 'nearest' });
-        }
-      }
-    });
+    focusGridIndex(state.currentIndex);
   }
 }
 
@@ -336,7 +350,6 @@ async function loadLibrary() {
 artistSelect.addEventListener('change', () => {
   state.selectedArtist = artistSelect.value;
   state.currentIndex = 0;
-  state.lastGridIndex = 0;
   state.gridScrollTop = 0;
   state.gridScrollLeft = 0;
   setCurrentItems();

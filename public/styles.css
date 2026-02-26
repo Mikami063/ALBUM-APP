@@ -32,6 +32,8 @@ body {
 
 .app.grid-mode {
   grid-template-columns: 1fr;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .left-panel,
@@ -41,6 +43,12 @@ body {
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 14px;
+}
+
+.viewer-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 24px);
 }
 
 h1,
@@ -113,6 +121,7 @@ button {
 
 .image-wrap {
   height: calc(100vh - 220px);
+  min-height: 420px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -121,7 +130,13 @@ button {
   overflow: hidden;
 }
 
+.app:not(.grid-mode) #focus-wrap {
+  display: flex !important;
+}
+
 #main-image {
+  height: 100%;
+  width: auto;
   max-height: 100%;
   max-width: 100%;
   object-fit: contain;
@@ -148,13 +163,16 @@ button {
 .app.grid-mode .viewer-panel {
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 24px);
+  height: calc(100vh - 24px);
+  min-height: 0;
+  overflow: hidden;
 }
 
 .app.grid-mode .photo-grid {
   flex: 1;
   min-height: 0;
   max-height: none;
+  overflow: auto;
 }
 
 .grid-tile {
@@ -165,6 +183,8 @@ button {
   background: #eee6da;
   display: flex;
   flex-direction: column;
+  aspect-ratio: 1 / 1;
+  min-height: 160px;
 }
 
 .grid-tile.active {
@@ -173,7 +193,7 @@ button {
 
 .grid-tile img {
   width: 100%;
-  aspect-ratio: 1 / 1;
+  height: 100%;
   object-fit: cover;
   display: block;
 }
