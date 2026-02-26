@@ -143,6 +143,66 @@ button {
   object-fit: contain;
 }
 
+.artist-info-panel {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #faf5ed;
+  padding: 10px;
+}
+
+.artist-info-panel h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.artist-info-content {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 10px;
+}
+
+.artist-avatar,
+.artist-avatar-placeholder {
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #efe7da;
+}
+
+.artist-avatar {
+  object-fit: cover;
+}
+
+.artist-avatar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.artist-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.artist-username {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.artist-description {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.3;
+  max-height: 130px;
+  overflow: auto;
+}
+
 .photo-grid {
   --grid-columns: 5;
   display: grid;
@@ -156,7 +216,8 @@ button {
 }
 
 .app.grid-mode .inspect-panel,
-.app.grid-mode #focus-wrap {
+.app.grid-mode #focus-wrap,
+.app.grid-mode .artist-info-panel {
   display: none;
 }
 

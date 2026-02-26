@@ -8,6 +8,7 @@ Local viewer for gallery-dl Pixiv folders with inspector metadata.
 - Title search (case-insensitive substring)
 - Pagination with per-page selector (`20`, `50`, `100`, `200`, `500`, `All`)
 - Arrow key navigation (`Left` / `Right`)
+- Focus view artist panel (name, username, profile pic, description)
 - Right inspector panel with:
   - title
   - tags

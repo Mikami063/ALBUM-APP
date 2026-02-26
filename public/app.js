@@ -38,6 +38,8 @@ const viewModeEl = document.getElementById('view-mode');
 const gridColumnsEl = document.getElementById('grid-columns');
 const gridColumnsValueEl = document.getElementById('grid-columns-value');
 const focusWrapEl = document.getElementById('focus-wrap');
+const artistInfoPanelEl = document.getElementById('artist-info-panel');
+const artistInfoEl = document.getElementById('artist-info');
 const gridEl = document.getElementById('grid');
 const hintEl = document.getElementById('hint');
 
@@ -111,6 +113,62 @@ function sanitizeCaptionHtml(input) {
 
 function normalizeTag(rawTag) {
   return String(rawTag || '').trim().toLowerCase();
+}
+
+function firstNonEmptyString(...values) {
+  for (const value of values) {
+    if (typeof value !== 'string') continue;
+    const trimmed = value.trim();
+    if (trimmed) return trimmed;
+  }
+  return '';
+}
+
+function artistImageFromMeta(meta = {}) {
+  return firstNonEmptyString(
+    meta?.user_profile_image_urls?.medium,
+    meta?.user_profile_image_urls?.px_170x170,
+    meta?.userProfileImageUrls?.medium,
+    meta?.userProfileImageUrls?.px170x170,
+    meta?.profile_image_urls?.medium,
+    meta?.profileImageUrls?.medium,
+    meta?.user?.profile_image_urls?.medium,
+    meta?.user?.profileImageUrls?.medium,
+    meta?.user?.profile_image_url,
+    meta?.user?.profileImageUrl,
+  );
+}
+
+function extractArtistInfo(item) {
+  const meta = item?.rawMeta || {};
+  const name = firstNonEmptyString(
+    meta?.userName,
+    meta?.user_name,
+    meta?.artist_name,
+    meta?.user?.name,
+  ) || `Artist ${item?.artistId || '-'}`;
+  const username = firstNonEmptyString(
+    meta?.userAccount,
+    meta?.user_account,
+    meta?.account,
+    meta?.user?.account,
+    meta?.user?.username,
+  );
+  const description = firstNonEmptyString(
+    meta?.userComment,
+    meta?.user_comment,
+    meta?.description,
+    meta?.profile?.comment,
+    meta?.user?.comment,
+  );
+  const imageUrl = artistImageFromMeta(meta);
+
+  return {
+    name,
+    username,
+    description,
+    imageUrl,
+  };
 }
 
 function normalizeTagFilters(rawTags) {
@@ -404,10 +462,29 @@ function renderInspector(item) {
     .join('');
 }
 
+function renderArtistInfo(item) {
+  const info = extractArtistInfo(item);
+  const avatarHtml = '<div class="artist-avatar-placeholder">Disabled</div>';
+  const usernameHtml = info.username ? `@${escapeHtml(info.username)}` : '-';
+  const descriptionHtml = info.description ? sanitizeCaptionHtml(info.description) : '-';
+
+  artistInfoEl.innerHTML = `
+    <div class="artist-info-content">
+      ${avatarHtml}
+      <div>
+        <div class="artist-name">${escapeHtml(info.name)}</div>
+        <div class="artist-username">${usernameHtml}</div>
+        <div class="artist-description">${descriptionHtml}</div>
+      </div>
+    </div>
+  `;
+}
+
 function updateViewerMode() {
   const isGrid = state.viewMode === 'grid';
   appEl.classList.toggle('grid-mode', isGrid);
   focusWrapEl.hidden = isGrid;
+  artistInfoPanelEl.hidden = isGrid;
   gridEl.hidden = !isGrid;
   prevBtn.disabled = !state.currentItems.length;
   nextBtn.disabled = !state.currentItems.length;
@@ -450,6 +527,7 @@ function renderEmpty() {
   const shown = state.library?.totalItems ?? getFallbackTotalItems();
   countsEl.textContent = `Artists: ${artists} | Pictures: ${totalPictures} | Showing: ${shown}${getTagSummary()}${getTitleSummary()}`;
   metaEl.innerHTML = '<p>No metadata.</p>';
+  artistInfoEl.innerHTML = '<p>No artist info.</p>';
   commentsEl.innerHTML = '<p>No comments.</p>';
   listEl.innerHTML = '';
   gridEl.innerHTML = '';
@@ -491,6 +569,7 @@ function renderCurrent(options = {}) {
     renderGrid();
   }
   renderInspector(item);
+  renderArtistInfo(item);
   renderPagingControls();
   updateViewerMode();
 }
