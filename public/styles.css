@@ -159,6 +159,10 @@ button {
   display: none;
 }
 
+.app.grid-mode .image-list {
+  display: none;
+}
+
 .app.grid-mode .viewer-panel {
   display: flex;
   flex-direction: column;
