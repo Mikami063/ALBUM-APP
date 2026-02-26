@@ -191,6 +191,28 @@ function renderList() {
   });
 }
 
+function scrollListToIndex(index) {
+  const row = listEl.children[index];
+  if (!row) return;
+  const top = row.offsetTop - (listEl.clientHeight - row.offsetHeight) / 2;
+  listEl.scrollTop = Math.max(0, top);
+}
+
+function focusListIndex(index) {
+  let attempts = 0;
+  const maxAttempts = 3;
+
+  function step() {
+    scrollListToIndex(index);
+    attempts += 1;
+    if (attempts < maxAttempts) {
+      window.requestAnimationFrame(step);
+    }
+  }
+
+  window.requestAnimationFrame(step);
+}
+
 function renderGrid() {
   gridEl.innerHTML = '';
   gridEl.style.setProperty('--grid-columns', String(state.gridColumns));
@@ -320,6 +342,7 @@ function setViewMode(nextMode) {
 
   if (nextMode === 'focus') {
     renderList();
+    focusListIndex(state.currentIndex);
   } else {
     updateGridSelection();
   }
@@ -379,6 +402,7 @@ function renderCurrent(options = {}) {
     }
   } else {
     renderList();
+    focusListIndex(state.currentIndex);
     renderGrid();
   }
   renderInspector(item);
