@@ -194,7 +194,11 @@ function renderList() {
 function scrollListToIndex(index) {
   const row = listEl.children[index];
   if (!row) return;
-  const top = row.offsetTop - (listEl.clientHeight - row.offsetHeight) / 2;
+  const listRect = listEl.getBoundingClientRect();
+  const rowRect = row.getBoundingClientRect();
+  const rowTopInList = rowRect.top - listRect.top + listEl.scrollTop;
+  const anchorRatio = 0.35;
+  const top = rowTopInList - (listEl.clientHeight - rowRect.height) * anchorRatio;
   listEl.scrollTop = Math.max(0, top);
 }
 
