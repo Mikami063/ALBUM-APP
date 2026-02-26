@@ -213,6 +213,31 @@ button {
   font-size: 13px;
 }
 
+.paging-controls {
+  margin-top: 8px;
+}
+
+.paging-controls label {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.page-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+#page-position {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
 .image-list {
   border-top: 1px solid var(--line);
   margin-top: 8px;

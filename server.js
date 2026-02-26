@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
+const ALLOWED_PER_PAGE = new Set([20, 50, 100, 200, 500]);
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const PORT = Number(process.env.PORT || 4579);
 
@@ -180,9 +181,33 @@ function scanLibrary() {
       artists: artistList.length,
       pictures: allItems.length,
     },
+    artistCounts: Object.fromEntries(
+      artistList.map((artistId) => [artistId, (itemsByArtist[artistId] || []).length]),
+    ),
     itemsByArtist,
     allItems,
   };
+}
+
+function parsePage(rawPage) {
+  const parsed = Number.parseInt(rawPage || '', 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return 1;
+  }
+  return parsed;
+}
+
+function parsePerPage(rawPerPage) {
+  if (rawPerPage === 'all') {
+    return { mode: 'all', value: null };
+  }
+
+  const parsed = Number.parseInt(rawPerPage || '', 10);
+  if (ALLOWED_PER_PAGE.has(parsed)) {
+    return { mode: 'numeric', value: parsed };
+  }
+
+  return { mode: 'numeric', value: 100 };
 }
 
 function sendJson(res, data, status = 200) {
@@ -238,8 +263,34 @@ const server = http.createServer((req, res) => {
   const pathname = requestUrl.pathname;
 
   if (method === 'GET' && pathname === '/api/library') {
+    const selectedArtist = requestUrl.searchParams.get('artist') || 'all';
+    const requestedPage = parsePage(requestUrl.searchParams.get('page'));
+    const perPageInfo = parsePerPage(requestUrl.searchParams.get('perPage'));
     const library = scanLibrary();
-    sendJson(res, library);
+
+    const validArtist = selectedArtist === 'all' || library.artistList.includes(selectedArtist);
+    const artist = validArtist ? selectedArtist : 'all';
+    const sourceItems = artist === 'all' ? library.allItems : library.itemsByArtist[artist] || [];
+    const totalItems = sourceItems.length;
+    const perPage = perPageInfo.mode === 'all' ? totalItems || 1 : perPageInfo.value;
+    const totalPages = perPageInfo.mode === 'all' ? 1 : Math.max(1, Math.ceil(totalItems / perPage));
+    const page = Math.min(requestedPage, totalPages);
+    const start = perPageInfo.mode === 'all' ? 0 : (page - 1) * perPage;
+    const end = perPageInfo.mode === 'all' ? totalItems : start + perPage;
+    const items = sourceItems.slice(start, end);
+
+    sendJson(res, {
+      worksRoot: library.worksRoot,
+      artistList: library.artistList,
+      totals: library.totals,
+      artistCounts: library.artistCounts,
+      selectedArtist: artist,
+      page,
+      perPage: perPageInfo.mode === 'all' ? 'all' : perPage,
+      totalItems,
+      totalPages,
+      items,
+    });
     return;
   }
 

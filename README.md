@@ -4,6 +4,7 @@ Local viewer for gallery-dl Pixiv folders with inspector metadata.
 
 ## Features
 - Artist filter (`All artists` + each artist ID)
+- Pagination with per-page selector (`20`, `50`, `100`, `200`, `500`, `All`)
 - Arrow key navigation (`Left` / `Right`)
 - Right inspector panel with:
   - title
@@ -44,3 +45,9 @@ If you run from a different directory, set `WORKS_ROOT`:
 ```bash
 WORKS_ROOT=/path/to/Pixiv/Works node server.js
 ```
+
+## API
+`GET /api/library` supports:
+- `artist` (`all` or a numeric artist ID)
+- `page` (1-based page number)
+- `perPage` (`20`, `50`, `100`, `200`, `500`, or `all`)

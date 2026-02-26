@@ -3,6 +3,8 @@ const state = {
   selectedArtist: 'all',
   currentItems: [],
   currentIndex: 0,
+  page: 1,
+  perPage: '100',
   viewMode: 'focus',
   gridColumns: 5,
   gridScrollTop: 0,
@@ -10,6 +12,10 @@ const state = {
 };
 
 const artistSelect = document.getElementById('artist-select');
+const perPageSelect = document.getElementById('per-page-select');
+const prevPageBtn = document.getElementById('prev-page-btn');
+const nextPageBtn = document.getElementById('next-page-btn');
+const pagePositionEl = document.getElementById('page-position');
 const listEl = document.getElementById('list');
 const countsEl = document.getElementById('counts');
 const mainImage = document.getElementById('main-image');
@@ -95,13 +101,23 @@ function sanitizeCaptionHtml(input) {
 }
 
 function setCurrentItems() {
-  if (!state.library) return;
-  if (state.selectedArtist === 'all') {
-    state.currentItems = state.library.allItems || [];
+  const pagedItems = state.library?.items;
+  if (Array.isArray(pagedItems)) {
+    state.currentItems = pagedItems;
   } else {
-    state.currentItems = state.library.itemsByArtist[state.selectedArtist] || [];
+    const baseItems = state.selectedArtist === 'all'
+      ? (state.library?.allItems || [])
+      : (state.library?.itemsByArtist?.[state.selectedArtist] || []);
+    const totalItems = baseItems.length;
+    const perPageRaw = state.library?.perPage || state.perPage;
+    const perPage = perPageRaw === 'all' ? (totalItems || 1) : Number(perPageRaw);
+    const totalPages = Math.max(1, Math.ceil(totalItems / perPage));
+    const page = Math.min(Math.max(1, state.page), totalPages);
+    const start = (page - 1) * perPage;
+    const end = start + perPage;
+    state.currentItems = perPageRaw === 'all' ? baseItems : baseItems.slice(start, end);
+    state.page = page;
   }
-
   if (state.currentIndex >= state.currentItems.length) {
     state.currentIndex = 0;
   }
@@ -113,18 +129,41 @@ function renderArtistOptions() {
 
   const allOption = document.createElement('option');
   allOption.value = 'all';
-  allOption.textContent = `All artists (${state.library.totals.pictures})`;
+  allOption.textContent = `All artists (${state.library.totals.pictures || 0})`;
   artistSelect.appendChild(allOption);
 
   artists.forEach((artistId) => {
-    const count = (state.library.itemsByArtist[artistId] || []).length;
+    const count = state.library.artistCounts?.[artistId] || 0;
     const option = document.createElement('option');
     option.value = artistId;
     option.textContent = `${artistId} (${count})`;
     artistSelect.appendChild(option);
   });
 
-  artistSelect.value = state.selectedArtist;
+  artistSelect.value = state.library.selectedArtist || state.selectedArtist;
+}
+
+function renderPagingControls() {
+  const fallbackPerPageRaw = state.library?.perPage || state.perPage;
+  const fallbackTotalItems = state.selectedArtist === 'all'
+    ? (state.library?.totals?.pictures || 0)
+    : (
+      state.library?.artistCounts?.[state.selectedArtist]
+      || state.library?.itemsByArtist?.[state.selectedArtist]?.length
+      || 0
+    );
+  const fallbackPerPage = fallbackPerPageRaw === 'all'
+    ? (fallbackTotalItems || 1)
+    : Number(fallbackPerPageRaw);
+  const fallbackTotalPages = Math.max(1, Math.ceil(fallbackTotalItems / fallbackPerPage));
+  const currentPage = state.library?.page ?? state.page ?? 1;
+  const totalPages = state.library?.totalPages ?? fallbackTotalPages;
+  const totalItems = state.library?.totalItems ?? fallbackTotalItems;
+
+  pagePositionEl.textContent = `Page ${currentPage} / ${totalPages}`;
+  prevPageBtn.disabled = currentPage <= 1 || totalItems === 0;
+  nextPageBtn.disabled = currentPage >= totalPages || totalItems === 0;
+  perPageSelect.value = String(state.library?.perPage || state.perPage);
 }
 
 function renderList() {
@@ -294,11 +333,17 @@ function renderEmpty() {
   mainImage.removeAttribute('src');
   mainImage.alt = 'No image';
   positionEl.textContent = '0 / 0';
-  countsEl.textContent = 'No pictures found.';
+  const artists = state.library?.totals?.artists || 0;
+  const totalPictures = state.library?.totals?.pictures || 0;
+  const shown = state.selectedArtist === 'all'
+    ? (state.library?.totals?.pictures || 0)
+    : (state.library?.artistCounts?.[state.selectedArtist] || 0);
+  countsEl.textContent = `Artists: ${artists} | Pictures: ${totalPictures} | Showing: ${shown}`;
   metaEl.innerHTML = '<p>No metadata.</p>';
   commentsEl.innerHTML = '<p>No comments.</p>';
   listEl.innerHTML = '';
   gridEl.innerHTML = '';
+  renderPagingControls();
   updateViewerMode();
 }
 
@@ -314,7 +359,17 @@ function renderCurrent(options = {}) {
   mainImage.alt = item.title || 'Artwork';
 
   positionEl.textContent = `${state.currentIndex + 1} / ${state.currentItems.length}`;
-  countsEl.textContent = `Artists: ${state.library.totals.artists} | Pictures: ${state.library.totals.pictures}`;
+  const totalItems = state.library.totalItems ?? (
+    state.selectedArtist === 'all'
+      ? (state.library.totals?.pictures || 0)
+      : (state.library.artistCounts?.[state.selectedArtist] || 0)
+  );
+  const page = state.library.page || 1;
+  const perPage = state.library.perPage || state.perPage;
+  const perPageValue = perPage === 'all' ? totalItems : Number(perPage);
+  const from = totalItems ? (page - 1) * perPageValue + 1 : 0;
+  const to = totalItems ? from + state.currentItems.length - 1 : 0;
+  countsEl.textContent = `Artists: ${state.library.totals.artists} | Pictures: ${state.library.totals.pictures} | Showing ${from}-${to} of ${totalItems}`;
 
   if (state.viewMode === 'grid') {
     if (!preserveGrid) {
@@ -327,6 +382,7 @@ function renderCurrent(options = {}) {
     renderGrid();
   }
   renderInspector(item);
+  renderPagingControls();
   updateViewerMode();
 }
 
@@ -338,9 +394,23 @@ function move(delta) {
 }
 
 async function loadLibrary() {
-  const res = await fetch('/api/library');
+  const params = new URLSearchParams();
+  params.set('artist', state.selectedArtist);
+  params.set('page', String(state.page));
+  params.set('perPage', state.perPage);
+
+  const res = await fetch(`/api/library?${params.toString()}`);
   if (!res.ok) throw new Error('Failed to load library');
   state.library = await res.json();
+  state.selectedArtist = state.library.selectedArtist || state.selectedArtist;
+  if (typeof state.library.page === 'number' && Number.isFinite(state.library.page) && state.library.page >= 1) {
+    state.page = state.library.page;
+  }
+  if (state.library.perPage != null) {
+    state.perPage = String(state.library.perPage);
+  } else if (!state.perPage) {
+    state.perPage = '100';
+  }
 
   renderArtistOptions();
   setCurrentItems();
@@ -349,11 +419,66 @@ async function loadLibrary() {
 
 artistSelect.addEventListener('change', () => {
   state.selectedArtist = artistSelect.value;
+  state.page = 1;
   state.currentIndex = 0;
   state.gridScrollTop = 0;
   state.gridScrollLeft = 0;
-  setCurrentItems();
-  renderCurrent();
+  loadLibrary().catch((error) => {
+    console.error(error);
+    countsEl.textContent = 'Failed to load library.';
+    renderEmpty();
+  });
+});
+
+perPageSelect.addEventListener('change', () => {
+  state.perPage = perPageSelect.value;
+  state.page = 1;
+  state.currentIndex = 0;
+  state.gridScrollTop = 0;
+  state.gridScrollLeft = 0;
+  loadLibrary().catch((error) => {
+    console.error(error);
+    countsEl.textContent = 'Failed to load library.';
+    renderEmpty();
+  });
+});
+
+prevPageBtn.addEventListener('click', () => {
+  if (state.page <= 1) return;
+  state.page -= 1;
+  state.currentIndex = 0;
+  state.gridScrollTop = 0;
+  state.gridScrollLeft = 0;
+  loadLibrary().catch((error) => {
+    console.error(error);
+    countsEl.textContent = 'Failed to load library.';
+    renderEmpty();
+  });
+});
+
+nextPageBtn.addEventListener('click', () => {
+  const totalItems = state.library?.totalItems ?? (
+    state.selectedArtist === 'all'
+      ? (state.library?.totals?.pictures || 0)
+      : (
+        state.library?.artistCounts?.[state.selectedArtist]
+        || state.library?.itemsByArtist?.[state.selectedArtist]?.length
+        || 0
+      )
+  );
+  const perPageRaw = state.library?.perPage || state.perPage;
+  const perPage = perPageRaw === 'all' ? (totalItems || 1) : Number(perPageRaw);
+  const totalPages = state.library?.totalPages || Math.max(1, Math.ceil(totalItems / perPage));
+  if (state.page >= totalPages) return;
+  state.page += 1;
+  state.currentIndex = 0;
+  state.gridScrollTop = 0;
+  state.gridScrollLeft = 0;
+  loadLibrary().catch((error) => {
+    console.error(error);
+    countsEl.textContent = 'Failed to load library.';
+    renderEmpty();
+  });
 });
 
 viewModeEl.addEventListener('change', () => {

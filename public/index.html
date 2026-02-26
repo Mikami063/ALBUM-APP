@@ -12,6 +12,22 @@
       <h1>Album Viewer</h1>
       <label for="artist-select">Artist</label>
       <select id="artist-select"></select>
+      <div class="paging-controls">
+        <label for="per-page-select">Per page</label>
+        <select id="per-page-select">
+          <option value="20">20</option>
+          <option value="50">50</option>
+          <option value="100" selected>100</option>
+          <option value="200">200</option>
+          <option value="500">500</option>
+          <option value="all">All</option>
+        </select>
+        <div class="page-row">
+          <button id="prev-page-btn" type="button">Prev page</button>
+          <span id="page-position">Page 1 / 1</span>
+          <button id="next-page-btn" type="button">Next page</button>
+        </div>
+      </div>
       <div id="counts" class="counts"></div>
       <div id="list" class="image-list"></div>
     </aside>
