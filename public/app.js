@@ -3,6 +3,8 @@ const state = {
   selectedArtist: 'all',
   currentItems: [],
   currentIndex: 0,
+  viewMode: 'focus',
+  gridColumns: 5,
 };
 
 const artistSelect = document.getElementById('artist-select');
@@ -14,6 +16,13 @@ const metaEl = document.getElementById('meta');
 const commentsEl = document.getElementById('comments');
 const prevBtn = document.getElementById('prev-btn');
 const nextBtn = document.getElementById('next-btn');
+const appEl = document.querySelector('.app');
+const viewModeEl = document.getElementById('view-mode');
+const gridColumnsEl = document.getElementById('grid-columns');
+const gridColumnsValueEl = document.getElementById('grid-columns-value');
+const focusWrapEl = document.getElementById('focus-wrap');
+const gridEl = document.getElementById('grid');
+const hintEl = document.getElementById('hint');
 
 function formatDate(input) {
   if (!input) return '-';
@@ -141,6 +150,28 @@ function renderList() {
   });
 }
 
+function renderGrid() {
+  gridEl.innerHTML = '';
+  gridEl.style.setProperty('--grid-columns', String(state.gridColumns));
+
+  state.currentItems.forEach((item, index) => {
+    const tile = document.createElement('button');
+    tile.type = 'button';
+    tile.className = `grid-tile ${index === state.currentIndex ? 'active' : ''}`;
+    tile.innerHTML = `
+      <img src="${item.imageUrl}" alt="${escapeHtml(item.title || 'Artwork')}">
+      <span class="grid-label">${escapeHtml(item.title || '(Untitled)')}</span>
+    `;
+
+    tile.addEventListener('click', () => {
+      state.currentIndex = index;
+      renderCurrent();
+    });
+
+    gridEl.appendChild(tile);
+  });
+}
+
 function renderInspector(item) {
   const tags = item.tags || [];
   const tagsHtml = tags.length
@@ -178,6 +209,18 @@ function renderInspector(item) {
     .join('');
 }
 
+function updateViewerMode() {
+  const isGrid = state.viewMode === 'grid';
+  appEl.classList.toggle('grid-mode', isGrid);
+  focusWrapEl.hidden = isGrid;
+  gridEl.hidden = !isGrid;
+  prevBtn.disabled = isGrid;
+  nextBtn.disabled = isGrid;
+  hintEl.textContent = isGrid
+    ? 'Click a tile to inspect it. Use Columns to adjust density.'
+    : 'Keyboard: Left/Right arrows navigate images.';
+}
+
 function renderEmpty() {
   mainImage.removeAttribute('src');
   mainImage.alt = 'No image';
@@ -186,6 +229,8 @@ function renderEmpty() {
   metaEl.innerHTML = '<p>No metadata.</p>';
   commentsEl.innerHTML = '<p>No comments.</p>';
   listEl.innerHTML = '';
+  gridEl.innerHTML = '';
+  updateViewerMode();
 }
 
 function renderCurrent() {
@@ -202,7 +247,9 @@ function renderCurrent() {
   countsEl.textContent = `Artists: ${state.library.totals.artists} | Pictures: ${state.library.totals.pictures}`;
 
   renderList();
+  renderGrid();
   renderInspector(item);
+  updateViewerMode();
 }
 
 function move(delta) {
@@ -229,10 +276,22 @@ artistSelect.addEventListener('change', () => {
   renderCurrent();
 });
 
+viewModeEl.addEventListener('change', () => {
+  state.viewMode = viewModeEl.value;
+  updateViewerMode();
+});
+
+gridColumnsEl.addEventListener('input', () => {
+  state.gridColumns = Number(gridColumnsEl.value);
+  gridColumnsValueEl.textContent = String(state.gridColumns);
+  renderGrid();
+});
+
 prevBtn.addEventListener('click', () => move(-1));
 nextBtn.addEventListener('click', () => move(1));
 
 document.addEventListener('keydown', (event) => {
+  if (state.viewMode === 'grid') return;
   if (event.key === 'ArrowLeft') {
     move(-1);
   } else if (event.key === 'ArrowRight') {

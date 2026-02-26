@@ -22,10 +22,21 @@
         <span id="position"></span>
         <button id="next-btn" type="button">Next</button>
       </div>
-      <div class="image-wrap">
+      <div class="viewer-controls">
+        <label for="view-mode">View</label>
+        <select id="view-mode">
+          <option value="focus">Focus</option>
+          <option value="grid">Grid</option>
+        </select>
+        <label for="grid-columns">Columns</label>
+        <input id="grid-columns" type="range" min="2" max="10" value="5">
+        <span id="grid-columns-value">5</span>
+      </div>
+      <div class="image-wrap" id="focus-wrap">
         <img id="main-image" alt="Artwork">
       </div>
-      <p class="hint">Keyboard: Left/Right arrows navigate images.</p>
+      <div id="grid" class="photo-grid" hidden></div>
+      <p class="hint" id="hint">Keyboard: Left/Right arrows navigate images.</p>
     </main>
 
     <aside class="inspect-panel">

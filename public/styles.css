@@ -26,6 +26,10 @@ body {
   padding: 12px;
 }
 
+.app.grid-mode {
+  grid-template-columns: 1fr;
+}
+
 .left-panel,
 .viewer-panel,
 .inspect-panel {
@@ -47,7 +51,8 @@ h3 {
 }
 
 select,
-button {
+button,
+input[type="range"] {
   width: 100%;
   border: 1px solid var(--line);
   background: #fff;
@@ -74,8 +79,36 @@ button {
   font-size: 14px;
 }
 
+.viewer-controls {
+  display: grid;
+  grid-template-columns: auto 140px auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.viewer-controls label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.viewer-controls select {
+  padding: 6px 8px;
+}
+
+.viewer-controls input[type="range"] {
+  padding: 0;
+}
+
+#grid-columns-value {
+  min-width: 20px;
+  text-align: right;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .image-wrap {
-  height: calc(100vh - 170px);
+  height: calc(100vh - 220px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -88,6 +121,61 @@ button {
   max-height: 100%;
   max-width: 100%;
   object-fit: contain;
+}
+
+.photo-grid {
+  --grid-columns: 5;
+  display: grid;
+  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+  gap: 6px;
+  max-height: calc(100vh - 230px);
+  overflow: auto;
+  padding: 4px;
+  background: #f0ece4;
+  border-radius: 8px;
+}
+
+.app.grid-mode .left-panel,
+.app.grid-mode .inspect-panel,
+.app.grid-mode #focus-wrap {
+  display: none;
+}
+
+.app.grid-mode .viewer-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 24px);
+}
+
+.app.grid-mode .photo-grid {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+.grid-tile {
+  border: 2px solid transparent;
+  border-radius: 8px;
+  padding: 0;
+  overflow: hidden;
+  background: #eee6da;
+  display: flex;
+  flex-direction: column;
+}
+
+.grid-tile.active {
+  border-color: var(--accent);
+}
+
+.grid-tile img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  display: block;
+}
+
+.grid-label {
+  display: none;
 }
 
 .hint {
@@ -195,8 +283,16 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .viewer-controls {
+    grid-template-columns: auto 1fr auto 1fr auto;
+  }
+
   .image-wrap {
     height: 60vh;
+  }
+
+  .photo-grid {
+    max-height: 60vh;
   }
 
   .image-list,
