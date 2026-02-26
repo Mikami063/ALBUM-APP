@@ -31,7 +31,7 @@ body {
 }
 
 .app.grid-mode {
-  grid-template-columns: 1fr;
+  grid-template-columns: 300px 1fr;
   height: 100vh;
   overflow: hidden;
 }
@@ -154,7 +154,6 @@ button {
   border-radius: 8px;
 }
 
-.app.grid-mode .left-panel,
 .app.grid-mode .inspect-panel,
 .app.grid-mode #focus-wrap {
   display: none;

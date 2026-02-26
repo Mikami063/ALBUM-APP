@@ -298,8 +298,8 @@ function updateViewerMode() {
   appEl.classList.toggle('grid-mode', isGrid);
   focusWrapEl.hidden = isGrid;
   gridEl.hidden = !isGrid;
-  prevBtn.disabled = isGrid;
-  nextBtn.disabled = isGrid;
+  prevBtn.disabled = !state.currentItems.length;
+  nextBtn.disabled = !state.currentItems.length;
   hintEl.textContent = isGrid
     ? 'Click a tile to inspect it. Use Columns to adjust density.'
     : 'Keyboard: Left/Right arrows navigate images.';
