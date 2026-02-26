@@ -5,6 +5,8 @@ const state = {
   currentIndex: 0,
   viewMode: 'focus',
   gridColumns: 5,
+  gridScrollTop: 0,
+  gridScrollLeft: 0,
 };
 
 const artistSelect = document.getElementById('artist-select');
@@ -164,12 +166,29 @@ function renderGrid() {
     `;
 
     tile.addEventListener('click', () => {
+      if (state.viewMode !== 'grid') {
+        state.currentIndex = index;
+        renderCurrent();
+        return;
+      }
+      if (state.currentIndex === index) {
+        setViewMode('focus');
+        return;
+      }
       state.currentIndex = index;
-      renderCurrent();
+      renderCurrent({ preserveGrid: true });
     });
 
     gridEl.appendChild(tile);
   });
+}
+
+function updateGridSelection() {
+  const tiles = gridEl.children;
+  for (let i = 0; i < tiles.length; i += 1) {
+    const active = i === state.currentIndex;
+    tiles[i].classList.toggle('active', active);
+  }
 }
 
 function renderInspector(item) {
@@ -221,6 +240,33 @@ function updateViewerMode() {
     : 'Keyboard: Left/Right arrows navigate images.';
 }
 
+function setViewMode(nextMode) {
+  if (nextMode !== 'focus' && nextMode !== 'grid') return;
+  if (state.viewMode === nextMode) return;
+
+  if (state.viewMode === 'grid') {
+    state.gridScrollTop = gridEl.scrollTop;
+    state.gridScrollLeft = gridEl.scrollLeft;
+  }
+
+  state.viewMode = nextMode;
+  viewModeEl.value = nextMode;
+  updateViewerMode();
+
+  if (nextMode === 'focus') {
+    renderList();
+  } else {
+    updateGridSelection();
+  }
+
+  if (nextMode === 'grid') {
+    window.requestAnimationFrame(() => {
+      gridEl.scrollTop = state.gridScrollTop;
+      gridEl.scrollLeft = state.gridScrollLeft;
+    });
+  }
+}
+
 function renderEmpty() {
   mainImage.removeAttribute('src');
   mainImage.alt = 'No image';
@@ -233,7 +279,8 @@ function renderEmpty() {
   updateViewerMode();
 }
 
-function renderCurrent() {
+function renderCurrent(options = {}) {
+  const preserveGrid = options.preserveGrid === true;
   if (!state.currentItems.length) {
     renderEmpty();
     return;
@@ -246,8 +293,16 @@ function renderCurrent() {
   positionEl.textContent = `${state.currentIndex + 1} / ${state.currentItems.length}`;
   countsEl.textContent = `Artists: ${state.library.totals.artists} | Pictures: ${state.library.totals.pictures}`;
 
-  renderList();
-  renderGrid();
+  if (state.viewMode === 'grid') {
+    if (!preserveGrid) {
+      renderGrid();
+    } else {
+      updateGridSelection();
+    }
+  } else {
+    renderList();
+    renderGrid();
+  }
   renderInspector(item);
   updateViewerMode();
 }
@@ -277,13 +332,16 @@ artistSelect.addEventListener('change', () => {
 });
 
 viewModeEl.addEventListener('change', () => {
-  state.viewMode = viewModeEl.value;
-  updateViewerMode();
+  setViewMode(viewModeEl.value);
 });
 
 gridColumnsEl.addEventListener('input', () => {
   state.gridColumns = Number(gridColumnsEl.value);
   gridColumnsValueEl.textContent = String(state.gridColumns);
+  if (state.viewMode === 'grid') {
+    state.gridScrollTop = gridEl.scrollTop;
+    state.gridScrollLeft = gridEl.scrollLeft;
+  }
   renderGrid();
 });
 
@@ -297,6 +355,12 @@ document.addEventListener('keydown', (event) => {
   } else if (event.key === 'ArrowRight') {
     move(1);
   }
+});
+
+gridEl.addEventListener('scroll', () => {
+  if (state.viewMode !== 'grid') return;
+  state.gridScrollTop = gridEl.scrollTop;
+  state.gridScrollLeft = gridEl.scrollLeft;
 });
 
 loadLibrary().catch((error) => {
