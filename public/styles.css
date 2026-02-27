@@ -353,6 +353,28 @@ button {
   margin-top: 8px;
 }
 
+.picture-list-controls {
+  margin-top: 8px;
+}
+
+.picture-list-controls label {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.picture-list-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+#toggle-list-view-btn {
+  margin-top: 8px;
+}
+
 .active-tag-list {
   display: flex;
   flex-wrap: wrap;

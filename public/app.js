@@ -10,6 +10,9 @@ const state = {
   page: 1,
   perPage: '100',
   pictureView: 'single',
+  listMode: 'library',
+  activeListName: '',
+  pictureLists: {},
   tagFilters: [],
   titleQuery: '',
   viewMode: 'focus',
@@ -19,6 +22,7 @@ const state = {
 };
 
 const SETTINGS_STORAGE_KEY = 'album_viewer_settings_v1';
+const LISTS_STORAGE_KEY = 'album_viewer_lists_v1';
 const ALLOWED_PER_PAGE_VALUES = new Set(['20', '50', '100', '200', '500', 'all']);
 
 const artistSelect = document.getElementById('artist-select');
@@ -30,6 +34,13 @@ const tagFilterInput = document.getElementById('tag-filter-input');
 const activeTagListEl = document.getElementById('active-tag-list');
 const applyTagBtn = document.getElementById('apply-tag-btn');
 const clearTagBtn = document.getElementById('clear-tag-btn');
+const pictureListSelect = document.getElementById('picture-list-select');
+const pictureListNameInput = document.getElementById('picture-list-name-input');
+const createListBtn = document.getElementById('create-list-btn');
+const deleteListBtn = document.getElementById('delete-list-btn');
+const addToListBtn = document.getElementById('add-to-list-btn');
+const removeFromListBtn = document.getElementById('remove-from-list-btn');
+const toggleListViewBtn = document.getElementById('toggle-list-view-btn');
 const perPageSelect = document.getElementById('per-page-select');
 const prevPageBtn = document.getElementById('prev-page-btn');
 const nextPageBtn = document.getElementById('next-page-btn');
@@ -65,6 +76,38 @@ function loadSavedSettings() {
   }
 }
 
+function loadSavedLists() {
+  try {
+    const raw = window.localStorage.getItem(LISTS_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return {};
+    const normalized = {};
+    for (const [listName, entries] of Object.entries(parsed)) {
+      const trimmedName = String(listName || '').trim();
+      if (!trimmedName) continue;
+      const safeEntries = Array.isArray(entries) ? entries : [];
+      normalized[trimmedName] = safeEntries
+        .map((entry) => ({
+          artistId: String(entry?.artistId || ''),
+          fileName: String(entry?.fileName || ''),
+        }))
+        .filter((entry) => entry.artistId && entry.fileName);
+    }
+    return normalized;
+  } catch {
+    return {};
+  }
+}
+
+function saveLists() {
+  try {
+    window.localStorage.setItem(LISTS_STORAGE_KEY, JSON.stringify(state.pictureLists));
+  } catch {
+    // ignore storage errors
+  }
+}
+
 function saveSettings() {
   try {
     const currentItem = state.currentItems[state.currentIndex] || null;
@@ -75,6 +118,8 @@ function saveSettings() {
       currentItemFileName: currentItem?.fileName || '',
       currentPostId: currentItem?.postId ?? null,
       currentArtistId: currentItem?.artistId || '',
+      listMode: state.listMode,
+      activeListName: state.activeListName,
       perPage: state.perPage,
       pictureView: state.pictureView,
       titleQuery: state.titleQuery,
@@ -162,9 +207,103 @@ function normalizeTag(rawTag) {
   return String(rawTag || '').trim().toLowerCase();
 }
 
+function normalizeListName(rawName) {
+  return String(rawName || '').trim().slice(0, 60);
+}
+
+function getListEntryKey(entry) {
+  return `${entry.artistId}:${entry.fileName}`;
+}
+
+function getCurrentItemEntriesForList(item) {
+  if (!item) return [];
+  const groupImages = Array.isArray(item.groupImages) ? item.groupImages : [];
+  if (state.pictureView === 'grouped' && groupImages.length > 1) {
+    const entries = groupImages
+      .map((groupImage) => ({
+        artistId: item.artistId,
+        fileName: groupImage.fileName,
+      }))
+      .filter((entry) => entry.artistId && entry.fileName);
+    return entries;
+  }
+  if (!item.artistId || !item.fileName) return [];
+  return [{ artistId: item.artistId, fileName: item.fileName }];
+}
+
+function getActiveListEntries() {
+  return state.pictureLists[state.activeListName] || [];
+}
+
+function getActiveListEntrySet() {
+  return new Set(getActiveListEntries().map(getListEntryKey));
+}
+
+function itemMatchesActiveList(item, activeSet) {
+  if (!activeSet.size) return false;
+  const groupImages = Array.isArray(item.groupImages) ? item.groupImages : [];
+  if (groupImages.length > 0) {
+    return groupImages.some((groupImage) => activeSet.has(getListEntryKey({
+      artistId: item.artistId,
+      fileName: groupImage.fileName,
+    })));
+  }
+  return activeSet.has(getListEntryKey({
+    artistId: item.artistId,
+    fileName: item.fileName,
+  }));
+}
+
+function ensureActiveListExists() {
+  if (!state.activeListName || !state.pictureLists[state.activeListName]) {
+    state.listMode = 'library';
+    return false;
+  }
+  return true;
+}
+
+function renderPictureListControls() {
+  const names = Object.keys(state.pictureLists).sort((a, b) => a.localeCompare(b));
+  pictureListSelect.innerHTML = '';
+
+  const noneOption = document.createElement('option');
+  noneOption.value = '';
+  noneOption.textContent = 'No list selected';
+  pictureListSelect.appendChild(noneOption);
+
+  names.forEach((name) => {
+    const option = document.createElement('option');
+    option.value = name;
+    option.textContent = `${name} (${(state.pictureLists[name] || []).length})`;
+    pictureListSelect.appendChild(option);
+  });
+
+  if (state.activeListName && state.pictureLists[state.activeListName]) {
+    pictureListSelect.value = state.activeListName;
+  } else {
+    state.activeListName = '';
+    pictureListSelect.value = '';
+  }
+
+  const hasActiveList = ensureActiveListExists();
+  deleteListBtn.disabled = !hasActiveList;
+  addToListBtn.disabled = !hasActiveList || !state.currentItems.length;
+  removeFromListBtn.disabled = !hasActiveList || !state.currentItems.length;
+  toggleListViewBtn.disabled = !hasActiveList;
+  toggleListViewBtn.textContent = state.listMode === 'list'
+    ? 'Back to all pictures'
+    : 'Show selected list only';
+}
+
 function applySavedSettings() {
+  state.pictureLists = loadSavedLists();
   const saved = loadSavedSettings();
-  if (!saved) return;
+  if (!saved) {
+    if (!ensureActiveListExists()) {
+      state.activeListName = '';
+    }
+    return;
+  }
 
   if (typeof saved.selectedArtist === 'string' && saved.selectedArtist) {
     state.selectedArtist = saved.selectedArtist;
@@ -193,6 +332,12 @@ function applySavedSettings() {
   if (saved.pictureView === 'grouped' || saved.pictureView === 'single') {
     state.pictureView = saved.pictureView;
   }
+  if (saved.listMode === 'library' || saved.listMode === 'list') {
+    state.listMode = saved.listMode;
+  }
+  if (typeof saved.activeListName === 'string') {
+    state.activeListName = saved.activeListName.trim();
+  }
   if (typeof saved.titleQuery === 'string') {
     state.titleQuery = saved.titleQuery.trim().toLowerCase();
   }
@@ -208,6 +353,10 @@ function applySavedSettings() {
   }
   if (typeof saved.gridScrollLeft === 'number' && Number.isFinite(saved.gridScrollLeft)) {
     state.gridScrollLeft = Math.max(0, saved.gridScrollLeft);
+  }
+  if (!state.pictureLists[state.activeListName]) {
+    state.activeListName = '';
+    state.listMode = 'library';
   }
 }
 
@@ -346,9 +495,14 @@ function getFallbackTotalItems() {
 }
 
 function setCurrentItems() {
+  ensureActiveListExists();
+  const activeListSet = state.listMode === 'list' ? getActiveListEntrySet() : null;
+
   const pagedItems = state.library?.items;
   if (Array.isArray(pagedItems)) {
-    state.currentItems = pagedItems;
+    state.currentItems = activeListSet
+      ? pagedItems.filter((item) => itemMatchesActiveList(item, activeListSet))
+      : pagedItems;
   } else {
     const baseItemsUnfiltered = state.selectedArtist === 'all'
       ? (state.library?.allItems || [])
@@ -357,14 +511,17 @@ function setCurrentItems() {
       .filter((item) => itemMatchesAllTags(item, state.tagFilters))
       .filter((item) => itemMatchesTitle(item, state.titleQuery));
     const viewItems = state.pictureView === 'grouped' ? groupItemsForClient(baseItems) : baseItems;
-    const totalItems = viewItems.length;
+    const listFilteredItems = activeListSet
+      ? viewItems.filter((item) => itemMatchesActiveList(item, activeListSet))
+      : viewItems;
+    const totalItems = listFilteredItems.length;
     const perPageRaw = state.library?.perPage || state.perPage;
     const perPage = perPageRaw === 'all' ? (totalItems || 1) : Number(perPageRaw);
     const totalPages = Math.max(1, Math.ceil(totalItems / perPage));
     const page = Math.min(Math.max(1, state.page), totalPages);
     const start = (page - 1) * perPage;
     const end = start + perPage;
-    state.currentItems = perPageRaw === 'all' ? viewItems : viewItems.slice(start, end);
+    state.currentItems = perPageRaw === 'all' ? listFilteredItems : listFilteredItems.slice(start, end);
     state.page = page;
   }
   if (state.currentIndex >= state.currentItems.length) {
@@ -404,12 +561,13 @@ function renderPagingControls() {
   const totalItems = state.library?.totalItems ?? fallbackTotalItems;
 
   pagePositionEl.textContent = `Page ${currentPage} / ${totalPages}`;
-  prevPageBtn.disabled = currentPage <= 1 || totalItems === 0;
-  nextPageBtn.disabled = currentPage >= totalPages || totalItems === 0;
+  prevPageBtn.disabled = state.listMode === 'list' || currentPage <= 1 || totalItems === 0;
+  nextPageBtn.disabled = state.listMode === 'list' || currentPage >= totalPages || totalItems === 0;
   perPageSelect.value = String(state.library?.perPage || state.perPage);
   pictureViewSelect.value = state.pictureView;
   titleSearchInput.value = state.titleQuery;
   renderTagFilterChips();
+  renderPictureListControls();
   saveSettings();
 }
 
@@ -421,6 +579,11 @@ function getTagSummary() {
 function getTitleSummary() {
   if (!state.titleQuery) return '';
   return ` | Title: ${state.titleQuery}`;
+}
+
+function getListSummary() {
+  if (state.listMode !== 'list' || !state.activeListName) return '';
+  return ` | List: ${state.activeListName}`;
 }
 
 function renderTagFilterChips() {
@@ -673,7 +836,7 @@ function renderEmpty() {
   const artists = state.library?.totals?.artists || 0;
   const totalPictures = state.library?.totals?.pictures || 0;
   const shown = state.library?.totalItems ?? getFallbackTotalItems();
-  countsEl.textContent = `Artists: ${artists} | Pictures: ${totalPictures} | Showing: ${shown}${getTagSummary()}${getTitleSummary()}`;
+  countsEl.textContent = `Artists: ${artists} | Pictures: ${totalPictures} | Showing: ${shown}${getTagSummary()}${getTitleSummary()}${getListSummary()}`;
   metaEl.innerHTML = '<p>No metadata.</p>';
   artistInfoEl.innerHTML = '<p>No artist info.</p>';
   commentsEl.innerHTML = '<p>No comments.</p>';
@@ -722,7 +885,10 @@ function renderCurrent(options = {}) {
   const perPageValue = perPage === 'all' ? totalItems : Number(perPage);
   const from = totalItems ? (page - 1) * perPageValue + 1 : 0;
   const to = totalItems ? from + state.currentItems.length - 1 : 0;
-  countsEl.textContent = `Artists: ${state.library.totals.artists} | Pictures: ${state.library.totals.pictures} | Showing ${from}-${to} of ${totalItems}${getTagSummary()}${getTitleSummary()}`;
+  const effectiveTotal = state.listMode === 'list' ? state.currentItems.length : totalItems;
+  const effectiveFrom = state.listMode === 'list' ? (effectiveTotal ? 1 : 0) : from;
+  const effectiveTo = state.listMode === 'list' ? effectiveTotal : to;
+  countsEl.textContent = `Artists: ${state.library.totals.artists} | Pictures: ${state.library.totals.pictures} | Showing ${effectiveFrom}-${effectiveTo} of ${effectiveTotal}${getTagSummary()}${getTitleSummary()}${getListSummary()}`;
 
   if (state.viewMode === 'grid') {
     if (!preserveGrid) {
@@ -774,9 +940,11 @@ function restoreCurrentSelectionFromSaved() {
 
 async function loadLibrary() {
   const params = new URLSearchParams();
+  const requestPage = state.listMode === 'list' ? 1 : state.page;
+  const requestPerPage = state.listMode === 'list' ? 'all' : state.perPage;
   params.set('artist', state.selectedArtist);
-  params.set('page', String(state.page));
-  params.set('perPage', state.perPage);
+  params.set('page', String(requestPage));
+  params.set('perPage', requestPerPage);
   if (state.pictureView === 'grouped') {
     params.set('groupByPost', '1');
   }
@@ -920,6 +1088,107 @@ tagFilterInput.addEventListener('keydown', (event) => {
   if (event.key !== 'Enter') return;
   event.preventDefault();
   applyTagBtn.click();
+});
+
+pictureListSelect.addEventListener('change', () => {
+  state.activeListName = pictureListSelect.value;
+  if (state.listMode === 'list') {
+    state.page = 1;
+    state.currentIndex = 0;
+    loadLibrary().catch((error) => {
+      console.error(error);
+      countsEl.textContent = 'Failed to load library.';
+      renderEmpty();
+    });
+  } else {
+    renderPagingControls();
+  }
+});
+
+createListBtn.addEventListener('click', () => {
+  const listName = normalizeListName(pictureListNameInput.value);
+  if (!listName) return;
+  if (!state.pictureLists[listName]) {
+    state.pictureLists[listName] = [];
+  }
+  state.activeListName = listName;
+  pictureListNameInput.value = '';
+  saveLists();
+  renderPagingControls();
+});
+
+deleteListBtn.addEventListener('click', () => {
+  if (!state.activeListName || !state.pictureLists[state.activeListName]) return;
+  const deletingActiveList = state.listMode === 'list';
+  delete state.pictureLists[state.activeListName];
+  state.activeListName = '';
+  saveLists();
+  if (deletingActiveList) {
+    state.listMode = 'library';
+    state.page = 1;
+    state.currentIndex = 0;
+    loadLibrary().catch((error) => {
+      console.error(error);
+      countsEl.textContent = 'Failed to load library.';
+      renderEmpty();
+    });
+    return;
+  }
+  saveLists();
+  renderPagingControls();
+});
+
+addToListBtn.addEventListener('click', () => {
+  if (!state.activeListName || !state.pictureLists[state.activeListName]) return;
+  const currentItem = state.currentItems[state.currentIndex];
+  const additions = getCurrentItemEntriesForList(currentItem);
+  if (!additions.length) return;
+  const existing = new Set((state.pictureLists[state.activeListName] || []).map(getListEntryKey));
+  const merged = [...state.pictureLists[state.activeListName]];
+  additions.forEach((entry) => {
+    const key = getListEntryKey(entry);
+    if (existing.has(key)) return;
+    existing.add(key);
+    merged.push(entry);
+  });
+  state.pictureLists[state.activeListName] = merged;
+  saveLists();
+  renderPagingControls();
+});
+
+removeFromListBtn.addEventListener('click', () => {
+  if (!state.activeListName || !state.pictureLists[state.activeListName]) return;
+  const currentItem = state.currentItems[state.currentIndex];
+  const removals = getCurrentItemEntriesForList(currentItem);
+  if (!removals.length) return;
+  const removeKeys = new Set(removals.map(getListEntryKey));
+  state.pictureLists[state.activeListName] = (state.pictureLists[state.activeListName] || [])
+    .filter((entry) => !removeKeys.has(getListEntryKey(entry)));
+  saveLists();
+
+  if (state.listMode === 'list') {
+    state.page = 1;
+    state.currentIndex = 0;
+    loadLibrary().catch((error) => {
+      console.error(error);
+      countsEl.textContent = 'Failed to load library.';
+      renderEmpty();
+    });
+    return;
+  }
+  renderPagingControls();
+});
+
+toggleListViewBtn.addEventListener('click', () => {
+  if (!state.activeListName || !state.pictureLists[state.activeListName]) return;
+  state.listMode = state.listMode === 'list' ? 'library' : 'list';
+  state.page = 1;
+  state.currentIndex = 0;
+  loadLibrary().catch((error) => {
+    console.error(error);
+    countsEl.textContent = 'Failed to load library.';
+    renderEmpty();
+  });
 });
 
 activeTagListEl.addEventListener('click', (event) => {

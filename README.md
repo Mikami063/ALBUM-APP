@@ -7,6 +7,7 @@ Local viewer for gallery-dl Pixiv folders with inspector metadata.
 - Multi-tag filter (add/remove tags, case-insensitive substring; click tags in inspector to add)
 - Title search (case-insensitive substring)
 - Picture view mode: `Single` or `Grouped by post` (groups multipage posts by filename sequence and shows all pages together in focus view)
+- Picture lists: create custom lists, add/remove current picture, and view selected list only
 - Pagination with per-page selector (`20`, `50`, `100`, `200`, `500`, `All`)
 - Arrow key navigation (`Left` / `Right`)
 - Focus view artist panel (name, username, profile pic, description)
