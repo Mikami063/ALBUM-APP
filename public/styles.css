@@ -242,6 +242,19 @@ button {
   overflow: auto;
 }
 
+.picture-list-panel {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #faf5ed;
+  padding: 10px;
+}
+
+.picture-list-panel h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
 .photo-grid {
   --grid-columns: 5;
   display: grid;
@@ -256,7 +269,8 @@ button {
 
 .app.grid-mode .inspect-panel,
 .app.grid-mode #focus-wrap,
-.app.grid-mode .artist-info-panel {
+.app.grid-mode .artist-info-panel,
+.app.grid-mode .picture-list-panel {
   display: none;
 }
 

@@ -938,6 +938,16 @@ function restoreCurrentSelectionFromSaved() {
   state.restoreArtistId = '';
 }
 
+function setRestoreTargetFromItem(item) {
+  if (!item) return;
+  state.restoreItemFileName = item.fileName || '';
+  state.restoreArtistId = item.artistId || '';
+  state.restorePostId = typeof item.postId === 'number' ? item.postId : null;
+  state.hasPendingRestoreSelection = Boolean(
+    state.restoreItemFileName || (state.restoreArtistId && state.restorePostId != null),
+  );
+}
+
 async function loadLibrary() {
   const params = new URLSearchParams();
   const requestPage = state.listMode === 'list' ? 1 : state.page;
@@ -1181,9 +1191,13 @@ removeFromListBtn.addEventListener('click', () => {
 
 toggleListViewBtn.addEventListener('click', () => {
   if (!state.activeListName || !state.pictureLists[state.activeListName]) return;
+  const currentItem = state.currentItems[state.currentIndex];
+  setRestoreTargetFromItem(currentItem);
   state.listMode = state.listMode === 'list' ? 'library' : 'list';
-  state.page = 1;
-  state.currentIndex = 0;
+  if (state.listMode === 'list') {
+    state.page = 1;
+    state.currentIndex = 0;
+  }
   loadLibrary().catch((error) => {
     console.error(error);
     countsEl.textContent = 'Failed to load library.';
