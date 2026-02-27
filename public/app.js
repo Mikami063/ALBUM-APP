@@ -3,6 +3,10 @@ const state = {
   selectedArtist: 'all',
   currentItems: [],
   currentIndex: 0,
+  hasPendingRestoreSelection: false,
+  restoreItemFileName: '',
+  restorePostId: null,
+  restoreArtistId: '',
   page: 1,
   perPage: '100',
   pictureView: 'single',
@@ -13,6 +17,9 @@ const state = {
   gridScrollTop: 0,
   gridScrollLeft: 0,
 };
+
+const SETTINGS_STORAGE_KEY = 'album_viewer_settings_v1';
+const ALLOWED_PER_PAGE_VALUES = new Set(['20', '50', '100', '200', '500', 'all']);
 
 const artistSelect = document.getElementById('artist-select');
 const pictureViewSelect = document.getElementById('picture-view-select');
@@ -45,6 +52,43 @@ const artistInfoPanelEl = document.getElementById('artist-info-panel');
 const artistInfoEl = document.getElementById('artist-info');
 const gridEl = document.getElementById('grid');
 const hintEl = document.getElementById('hint');
+
+function loadSavedSettings() {
+  try {
+    const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveSettings() {
+  try {
+    const currentItem = state.currentItems[state.currentIndex] || null;
+    const payload = {
+      selectedArtist: state.selectedArtist,
+      page: state.page,
+      currentIndex: state.currentIndex,
+      currentItemFileName: currentItem?.fileName || '',
+      currentPostId: currentItem?.postId ?? null,
+      currentArtistId: currentItem?.artistId || '',
+      perPage: state.perPage,
+      pictureView: state.pictureView,
+      titleQuery: state.titleQuery,
+      tagFilters: state.tagFilters,
+      viewMode: state.viewMode,
+      gridColumns: state.gridColumns,
+      gridScrollTop: state.gridScrollTop,
+      gridScrollLeft: state.gridScrollLeft,
+    };
+    window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(payload));
+  } catch {
+    // ignore storage errors
+  }
+}
 
 function formatDate(input) {
   if (!input) return '-';
@@ -116,6 +160,55 @@ function sanitizeCaptionHtml(input) {
 
 function normalizeTag(rawTag) {
   return String(rawTag || '').trim().toLowerCase();
+}
+
+function applySavedSettings() {
+  const saved = loadSavedSettings();
+  if (!saved) return;
+
+  if (typeof saved.selectedArtist === 'string' && saved.selectedArtist) {
+    state.selectedArtist = saved.selectedArtist;
+  }
+  if (typeof saved.perPage === 'string' && ALLOWED_PER_PAGE_VALUES.has(saved.perPage)) {
+    state.perPage = saved.perPage;
+  }
+  if (typeof saved.page === 'number' && Number.isFinite(saved.page) && saved.page >= 1) {
+    state.page = Math.floor(saved.page);
+  }
+  if (typeof saved.currentIndex === 'number' && Number.isFinite(saved.currentIndex) && saved.currentIndex >= 0) {
+    state.currentIndex = Math.floor(saved.currentIndex);
+  }
+  if (typeof saved.currentItemFileName === 'string') {
+    state.restoreItemFileName = saved.currentItemFileName;
+  }
+  if (typeof saved.currentArtistId === 'string') {
+    state.restoreArtistId = saved.currentArtistId;
+  }
+  if (typeof saved.currentPostId === 'number' && Number.isFinite(saved.currentPostId)) {
+    state.restorePostId = saved.currentPostId;
+  }
+  state.hasPendingRestoreSelection = Boolean(
+    state.restoreItemFileName || (state.restoreArtistId && state.restorePostId != null),
+  );
+  if (saved.pictureView === 'grouped' || saved.pictureView === 'single') {
+    state.pictureView = saved.pictureView;
+  }
+  if (typeof saved.titleQuery === 'string') {
+    state.titleQuery = saved.titleQuery.trim().toLowerCase();
+  }
+  state.tagFilters = normalizeTagFilters(saved.tagFilters);
+  if (saved.viewMode === 'focus' || saved.viewMode === 'grid') {
+    state.viewMode = saved.viewMode;
+  }
+  if (typeof saved.gridColumns === 'number' && Number.isFinite(saved.gridColumns)) {
+    state.gridColumns = Math.min(10, Math.max(2, Math.round(saved.gridColumns)));
+  }
+  if (typeof saved.gridScrollTop === 'number' && Number.isFinite(saved.gridScrollTop)) {
+    state.gridScrollTop = Math.max(0, saved.gridScrollTop);
+  }
+  if (typeof saved.gridScrollLeft === 'number' && Number.isFinite(saved.gridScrollLeft)) {
+    state.gridScrollLeft = Math.max(0, saved.gridScrollLeft);
+  }
 }
 
 function firstNonEmptyString(...values) {
@@ -317,6 +410,7 @@ function renderPagingControls() {
   pictureViewSelect.value = state.pictureView;
   titleSearchInput.value = state.titleQuery;
   renderTagFilterChips();
+  saveSettings();
 }
 
 function getTagSummary() {
@@ -565,6 +659,7 @@ function setViewMode(nextMode) {
   if (nextMode === 'grid') {
     focusGridIndex(state.currentIndex);
   }
+  saveSettings();
 }
 
 function renderEmpty() {
@@ -632,6 +727,8 @@ function renderCurrent(options = {}) {
   if (state.viewMode === 'grid') {
     if (!preserveGrid) {
       renderGrid();
+      gridEl.scrollTop = state.gridScrollTop;
+      gridEl.scrollLeft = state.gridScrollLeft;
     } else {
       updateGridSelection();
     }
@@ -651,6 +748,28 @@ function move(delta) {
   const length = state.currentItems.length;
   state.currentIndex = (state.currentIndex + delta + length) % length;
   renderCurrent();
+}
+
+function restoreCurrentSelectionFromSaved() {
+  if (!state.hasPendingRestoreSelection) return;
+
+  let restoredIndex = -1;
+  if (state.restoreItemFileName) {
+    restoredIndex = state.currentItems.findIndex((item) => item.fileName === state.restoreItemFileName);
+  }
+  if (restoredIndex < 0 && state.restoreArtistId && state.restorePostId != null) {
+    restoredIndex = state.currentItems.findIndex(
+      (item) => item.artistId === state.restoreArtistId && Number(item.postId) === Number(state.restorePostId),
+    );
+  }
+  if (restoredIndex >= 0) {
+    state.currentIndex = restoredIndex;
+  }
+
+  state.hasPendingRestoreSelection = false;
+  state.restoreItemFileName = '';
+  state.restorePostId = null;
+  state.restoreArtistId = '';
 }
 
 async function loadLibrary() {
@@ -688,6 +807,7 @@ async function loadLibrary() {
 
   renderArtistOptions();
   setCurrentItems();
+  restoreCurrentSelectionFromSaved();
   renderCurrent();
 }
 
@@ -876,6 +996,7 @@ gridColumnsEl.addEventListener('input', () => {
     state.gridScrollLeft = gridEl.scrollLeft;
   }
   renderGrid();
+  saveSettings();
 });
 
 prevBtn.addEventListener('click', () => move(-1));
@@ -894,7 +1015,13 @@ gridEl.addEventListener('scroll', () => {
   if (state.viewMode !== 'grid') return;
   state.gridScrollTop = gridEl.scrollTop;
   state.gridScrollLeft = gridEl.scrollLeft;
+  saveSettings();
 });
+
+applySavedSettings();
+gridColumnsEl.value = String(state.gridColumns);
+gridColumnsValueEl.textContent = String(state.gridColumns);
+viewModeEl.value = state.viewMode;
 
 loadLibrary().catch((error) => {
   console.error(error);
