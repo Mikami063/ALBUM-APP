@@ -12,6 +12,11 @@
       <h1>Album Viewer</h1>
       <label for="artist-select">Artist</label>
       <select id="artist-select"></select>
+      <label for="picture-view-select">Picture view</label>
+      <select id="picture-view-select">
+        <option value="single">Single</option>
+        <option value="grouped">Grouped by post</option>
+      </select>
       <div class="title-search-controls">
         <label for="title-search-input">Title search</label>
         <input id="title-search-input" type="text" placeholder="search title...">
@@ -67,6 +72,7 @@
       </div>
       <div class="image-wrap" id="focus-wrap">
         <img id="main-image" alt="Artwork">
+        <div id="group-images" class="group-images" hidden></div>
       </div>
       <section id="artist-info-panel" class="artist-info-panel">
         <h3>Artist</h3>

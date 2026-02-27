@@ -104,6 +104,43 @@ function numericFromName(name) {
   return match ? Number(match[1]) : null;
 }
 
+function parsePostGrouping(fileName, metaId) {
+  const base = path.basename(fileName, path.extname(fileName));
+  const metaIdNum = Number(metaId || 0);
+  const metaIdText = metaIdNum > 0 ? String(metaIdNum) : '';
+
+  if (/^\d+$/.test(base) && metaIdText && base.startsWith(metaIdText)) {
+    const suffix = base.slice(metaIdText.length);
+    const parsedSuffix = suffix && /^\d+$/.test(suffix) ? Number(suffix) : 0;
+    return {
+      postId: metaIdNum,
+      pageIndex: Number.isFinite(parsedSuffix) ? parsedSuffix : 0,
+    };
+  }
+
+  const patterns = [
+    /^(\d+)_p(\d+)$/i,
+    /^(\d+)-p(\d+)$/i,
+    /^(\d+)[_-](\d+)$/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = base.match(pattern);
+    if (match) {
+      return {
+        postId: Number(match[1]),
+        pageIndex: Number(match[2]),
+      };
+    }
+  }
+
+  const fallbackId = Number(metaId || numericFromName(base) || 0);
+  return {
+    postId: fallbackId || null,
+    pageIndex: 0,
+  };
+}
+
 function scanArtist(artistId, artistPath) {
   const entries = safeReadDir(artistPath);
   const images = entries
@@ -115,12 +152,15 @@ function scanArtist(artistId, artistPath) {
     const absolutePath = path.join(artistPath, fileName);
     const meta = readMetadata(absolutePath) || {};
     const creation = toIsoDate(meta);
+    const grouping = parsePostGrouping(fileName, meta.id);
 
     return {
       artistId,
       fileName,
       imageUrl: `/media/${encodeURIComponent(artistId)}/${encodeURIComponent(fileName)}`,
       id: meta.id || numericFromName(fileName),
+      postId: grouping.postId,
+      pageIndex: grouping.pageIndex,
       title: meta.title || '',
       tags: Array.isArray(meta.tags) ? meta.tags : [],
       createDate: creation,
@@ -135,7 +175,10 @@ function scanArtist(artistId, artistPath) {
   items.sort((a, b) => {
     const aTime = a.createDate ? Date.parse(a.createDate) : 0;
     const bTime = b.createDate ? Date.parse(b.createDate) : 0;
-    return bTime - aTime;
+    if (bTime !== aTime) return bTime - aTime;
+    const postDelta = (b.postId || 0) - (a.postId || 0);
+    if (postDelta !== 0) return postDelta;
+    return (a.pageIndex || 0) - (b.pageIndex || 0);
   });
 
   return items;
@@ -239,10 +282,54 @@ function parseTitleFilter(rawTitle) {
   return String(rawTitle || '').trim().toLowerCase();
 }
 
+function parseGroupByPost(rawValue) {
+  const normalized = String(rawValue || '').trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes';
+}
+
 function itemMatchesTitle(item, normalizedTitle) {
   if (!normalizedTitle) return true;
   const title = String(item?.title || '').toLowerCase();
   return title.includes(normalizedTitle);
+}
+
+function groupItemsByPost(items) {
+  const groups = new Map();
+
+  for (const item of items) {
+    const fallbackPostId = item.id || numericFromName(item.fileName) || 0;
+    const key = `${item.artistId}:${item.postId || fallbackPostId}`;
+    if (!groups.has(key)) {
+      groups.set(key, []);
+    }
+    groups.get(key).push(item);
+  }
+
+  const grouped = [];
+  for (const group of groups.values()) {
+    group.sort((a, b) => (a.pageIndex || 0) - (b.pageIndex || 0));
+    const first = group[0];
+    grouped.push({
+      ...first,
+      groupCount: group.length,
+      groupImages: group.map((entry) => ({
+        imageUrl: entry.imageUrl,
+        fileName: entry.fileName,
+        pageIndex: entry.pageIndex || 0,
+        id: entry.id,
+        title: entry.title,
+      })),
+    });
+  }
+
+  grouped.sort((a, b) => {
+    const aTime = a.createDate ? Date.parse(a.createDate) : 0;
+    const bTime = b.createDate ? Date.parse(b.createDate) : 0;
+    if (bTime !== aTime) return bTime - aTime;
+    return (b.postId || 0) - (a.postId || 0);
+  });
+
+  return grouped;
 }
 
 function sendJson(res, data, status = 200) {
@@ -303,6 +390,7 @@ const server = http.createServer((req, res) => {
     const perPageInfo = parsePerPage(requestUrl.searchParams.get('perPage'));
     const tags = parseTagFilters(requestUrl.searchParams);
     const title = parseTitleFilter(requestUrl.searchParams.get('title'));
+    const groupByPost = parseGroupByPost(requestUrl.searchParams.get('groupByPost'));
     const library = scanLibrary();
 
     const validArtist = selectedArtist === 'all' || library.artistList.includes(selectedArtist);
@@ -310,13 +398,14 @@ const server = http.createServer((req, res) => {
     const sourceItems = (artist === 'all' ? library.allItems : library.itemsByArtist[artist] || [])
       .filter((item) => itemMatchesTags(item, tags))
       .filter((item) => itemMatchesTitle(item, title));
-    const totalItems = sourceItems.length;
+    const viewItems = groupByPost ? groupItemsByPost(sourceItems) : sourceItems;
+    const totalItems = viewItems.length;
     const perPage = perPageInfo.mode === 'all' ? totalItems || 1 : perPageInfo.value;
     const totalPages = perPageInfo.mode === 'all' ? 1 : Math.max(1, Math.ceil(totalItems / perPage));
     const page = Math.min(requestedPage, totalPages);
     const start = perPageInfo.mode === 'all' ? 0 : (page - 1) * perPage;
     const end = perPageInfo.mode === 'all' ? totalItems : start + perPage;
-    const items = sourceItems.slice(start, end);
+    const items = viewItems.slice(start, end);
 
     sendJson(res, {
       worksRoot: library.worksRoot,
@@ -327,6 +416,7 @@ const server = http.createServer((req, res) => {
       tag: tags[0] || '',
       tags,
       title,
+      groupByPost,
       page,
       perPage: perPageInfo.mode === 'all' ? 'all' : perPage,
       totalItems,

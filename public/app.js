@@ -5,6 +5,7 @@ const state = {
   currentIndex: 0,
   page: 1,
   perPage: '100',
+  pictureView: 'single',
   tagFilters: [],
   titleQuery: '',
   viewMode: 'focus',
@@ -14,6 +15,7 @@ const state = {
 };
 
 const artistSelect = document.getElementById('artist-select');
+const pictureViewSelect = document.getElementById('picture-view-select');
 const titleSearchInput = document.getElementById('title-search-input');
 const applyTitleBtn = document.getElementById('apply-title-btn');
 const clearTitleBtn = document.getElementById('clear-title-btn');
@@ -38,6 +40,7 @@ const viewModeEl = document.getElementById('view-mode');
 const gridColumnsEl = document.getElementById('grid-columns');
 const gridColumnsValueEl = document.getElementById('grid-columns-value');
 const focusWrapEl = document.getElementById('focus-wrap');
+const groupImagesEl = document.getElementById('group-images');
 const artistInfoPanelEl = document.getElementById('artist-info-panel');
 const artistInfoEl = document.getElementById('artist-info');
 const gridEl = document.getElementById('grid');
@@ -196,14 +199,57 @@ function itemMatchesTitle(item, normalizedTitle) {
   return title.includes(normalizedTitle);
 }
 
+function groupItemsForClient(items) {
+  const groups = new Map();
+  items.forEach((item) => {
+    const postId = item.postId || item.id || 0;
+    const key = `${item.artistId}:${postId}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  });
+
+  const grouped = [];
+  for (const group of groups.values()) {
+    group.sort((a, b) => (a.pageIndex || 0) - (b.pageIndex || 0));
+    const first = group[0];
+    grouped.push({
+      ...first,
+      groupCount: group.length,
+      groupImages: group.map((entry) => ({
+        imageUrl: entry.imageUrl,
+        fileName: entry.fileName,
+        pageIndex: entry.pageIndex || 0,
+        id: entry.id,
+        title: entry.title,
+      })),
+    });
+  }
+
+  grouped.sort((a, b) => {
+    const aTime = a.createDate ? Date.parse(a.createDate) : 0;
+    const bTime = b.createDate ? Date.parse(b.createDate) : 0;
+    if (bTime !== aTime) return bTime - aTime;
+    return (b.postId || b.id || 0) - (a.postId || a.id || 0);
+  });
+
+  return grouped;
+}
+
 function getFallbackTotalItems() {
   const baseItemsUnfiltered = state.selectedArtist === 'all'
     ? (state.library?.allItems || [])
     : (state.library?.itemsByArtist?.[state.selectedArtist] || []);
-  return baseItemsUnfiltered
+  const filtered = baseItemsUnfiltered
     .filter((item) => itemMatchesAllTags(item, state.tagFilters))
-    .filter((item) => itemMatchesTitle(item, state.titleQuery))
-    .length;
+    .filter((item) => itemMatchesTitle(item, state.titleQuery));
+  if (state.pictureView !== 'grouped') return filtered.length;
+
+  const keys = new Set();
+  filtered.forEach((item) => {
+    const postId = item.postId || item.id || 0;
+    keys.add(`${item.artistId}:${postId}`);
+  });
+  return keys.size;
 }
 
 function setCurrentItems() {
@@ -217,14 +263,15 @@ function setCurrentItems() {
     const baseItems = baseItemsUnfiltered
       .filter((item) => itemMatchesAllTags(item, state.tagFilters))
       .filter((item) => itemMatchesTitle(item, state.titleQuery));
-    const totalItems = baseItems.length;
+    const viewItems = state.pictureView === 'grouped' ? groupItemsForClient(baseItems) : baseItems;
+    const totalItems = viewItems.length;
     const perPageRaw = state.library?.perPage || state.perPage;
     const perPage = perPageRaw === 'all' ? (totalItems || 1) : Number(perPageRaw);
     const totalPages = Math.max(1, Math.ceil(totalItems / perPage));
     const page = Math.min(Math.max(1, state.page), totalPages);
     const start = (page - 1) * perPage;
     const end = start + perPage;
-    state.currentItems = perPageRaw === 'all' ? baseItems : baseItems.slice(start, end);
+    state.currentItems = perPageRaw === 'all' ? viewItems : viewItems.slice(start, end);
     state.page = page;
   }
   if (state.currentIndex >= state.currentItems.length) {
@@ -267,6 +314,7 @@ function renderPagingControls() {
   prevPageBtn.disabled = currentPage <= 1 || totalItems === 0;
   nextPageBtn.disabled = currentPage >= totalPages || totalItems === 0;
   perPageSelect.value = String(state.library?.perPage || state.perPage);
+  pictureViewSelect.value = state.pictureView;
   titleSearchInput.value = state.titleQuery;
   renderTagFilterChips();
 }
@@ -321,7 +369,7 @@ function renderList() {
       <img src="${item.imageUrl}" alt="">
       <div>
         <div class="row-title">${escapeHtml(item.title || '(Untitled)')}</div>
-        <div class="row-meta">ID ${escapeHtml(item.id ?? '-')} | ${escapeHtml(item.artistId)}</div>
+        <div class="row-meta">ID ${escapeHtml(item.id ?? '-')} | ${escapeHtml(item.artistId)}${item.groupCount ? ` | ${escapeHtml(item.groupCount)}p` : ''}</div>
       </div>
     `;
 
@@ -435,6 +483,7 @@ function renderInspector(item) {
     <div class="item"><div class="label">Title</div><div class="value">${escapeHtml(item.title || '(Untitled)')}</div></div>
     <div class="item"><div class="label">Artist ID</div><div class="value">${escapeHtml(item.artistId)}</div></div>
     <div class="item"><div class="label">Picture ID</div><div class="value">${escapeHtml(item.id ?? '-')}</div></div>
+    <div class="item"><div class="label">Post Group</div><div class="value">${escapeHtml(item.postId ?? '-')} | ${escapeHtml(item.pageIndex ?? 0)}${item.groupCount ? ` | ${escapeHtml(item.groupCount)} pages` : ''}</div></div>
     <div class="item"><div class="label">Created</div><div class="value">${escapeHtml(formatDate(item.createDate))}</div></div>
     <div class="item"><div class="label">Likes (bookmarks)</div><div class="value">${escapeHtml(item.likes ?? '-')}</div></div>
     <div class="item"><div class="label">Views</div><div class="value">${escapeHtml(item.views ?? '-')}</div></div>
@@ -521,6 +570,10 @@ function setViewMode(nextMode) {
 function renderEmpty() {
   mainImage.removeAttribute('src');
   mainImage.alt = 'No image';
+  mainImage.hidden = false;
+  groupImagesEl.hidden = true;
+  groupImagesEl.innerHTML = '';
+  focusWrapEl.classList.remove('group-gallery');
   positionEl.textContent = '0 / 0';
   const artists = state.library?.totals?.artists || 0;
   const totalPictures = state.library?.totals?.pictures || 0;
@@ -543,8 +596,27 @@ function renderCurrent(options = {}) {
   }
 
   const item = state.currentItems[state.currentIndex];
-  mainImage.src = item.imageUrl;
-  mainImage.alt = item.title || 'Artwork';
+  const groupImages = Array.isArray(item.groupImages) ? item.groupImages : [];
+  const showGroupGallery = state.pictureView === 'grouped' && groupImages.length > 1;
+  if (showGroupGallery) {
+    focusWrapEl.classList.add('group-gallery');
+    mainImage.hidden = true;
+    groupImagesEl.hidden = false;
+    groupImagesEl.innerHTML = groupImages
+      .map((entry) => `
+        <article class="group-image-card">
+          <img src="${escapeHtml(entry.imageUrl)}" alt="${escapeHtml(entry.title || item.title || 'Artwork')}">
+        </article>
+      `)
+      .join('');
+  } else {
+    focusWrapEl.classList.remove('group-gallery');
+    groupImagesEl.hidden = true;
+    groupImagesEl.innerHTML = '';
+    mainImage.hidden = false;
+    mainImage.src = item.imageUrl;
+    mainImage.alt = item.title || 'Artwork';
+  }
 
   positionEl.textContent = `${state.currentIndex + 1} / ${state.currentItems.length}`;
   const totalItems = state.library.totalItems ?? (
@@ -586,6 +658,9 @@ async function loadLibrary() {
   params.set('artist', state.selectedArtist);
   params.set('page', String(state.page));
   params.set('perPage', state.perPage);
+  if (state.pictureView === 'grouped') {
+    params.set('groupByPost', '1');
+  }
   state.tagFilters.forEach((tag) => params.append('tag', tag));
   if (state.titleQuery) params.set('title', state.titleQuery);
 
@@ -607,6 +682,9 @@ async function loadLibrary() {
     state.tagFilters = normalizeTagFilters([state.library.tag]);
   }
   state.titleQuery = String(state.library.title || state.titleQuery || '').trim().toLowerCase();
+  if (typeof state.library.groupByPost === 'boolean') {
+    state.pictureView = state.library.groupByPost ? 'grouped' : 'single';
+  }
 
   renderArtistOptions();
   setCurrentItems();
@@ -628,6 +706,19 @@ artistSelect.addEventListener('change', () => {
 
 perPageSelect.addEventListener('change', () => {
   state.perPage = perPageSelect.value;
+  state.page = 1;
+  state.currentIndex = 0;
+  state.gridScrollTop = 0;
+  state.gridScrollLeft = 0;
+  loadLibrary().catch((error) => {
+    console.error(error);
+    countsEl.textContent = 'Failed to load library.';
+    renderEmpty();
+  });
+});
+
+pictureViewSelect.addEventListener('change', () => {
+  state.pictureView = pictureViewSelect.value === 'grouped' ? 'grouped' : 'single';
   state.page = 1;
   state.currentIndex = 0;
   state.gridScrollTop = 0;
