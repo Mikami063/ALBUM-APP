@@ -35,30 +35,32 @@
           <button id="clear-tag-btn" type="button">Clear all</button>
         </div>
       </div>
-      <div class="paging-controls">
-        <label for="per-page-select">Per page</label>
-        <select id="per-page-select">
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100" selected>100</option>
-          <option value="200">200</option>
-          <option value="500">500</option>
-          <option value="all">All</option>
-        </select>
-        <div class="page-row">
-          <button id="prev-page-btn" type="button">Prev page</button>
-          <span id="page-position">Page 1 / 1</span>
-          <button id="next-page-btn" type="button">Next page</button>
+      <section class="selection-column">
+        <div class="paging-controls">
+          <label for="per-page-select">Per page</label>
+          <select id="per-page-select">
+            <option value="20">20</option>
+            <option value="50">50</option>
+            <option value="100" selected>100</option>
+            <option value="200">200</option>
+            <option value="500">500</option>
+            <option value="all">All</option>
+          </select>
+          <div class="page-row">
+            <button id="prev-page-btn" type="button">Prev page</button>
+            <span id="page-position">Page 1 / 1</span>
+            <button id="next-page-btn" type="button">Next page</button>
+          </div>
+          <label for="list-columns-select">List columns</label>
+          <select id="list-columns-select">
+            <option value="1" selected>1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+          </select>
         </div>
-        <label for="list-columns-select">List columns</label>
-        <select id="list-columns-select">
-          <option value="1" selected>1</option>
-          <option value="2">2</option>
-          <option value="3">3</option>
-        </select>
-      </div>
-      <div id="counts" class="counts"></div>
-      <div id="list" class="image-list"></div>
+        <div id="counts" class="counts"></div>
+        <div id="list" class="image-list"></div>
+      </section>
     </aside>
 
     <main class="viewer-panel">

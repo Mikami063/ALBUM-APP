@@ -382,6 +382,14 @@ button {
   font-size: 13px;
 }
 
+.selection-column {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #faf5ed;
+  padding: 8px;
+}
+
 .title-search-controls {
   margin-top: 8px;
 }
