@@ -540,9 +540,10 @@ function renderArtistOptions() {
 
   artists.forEach((artistId) => {
     const count = state.library.artistCounts?.[artistId] || 0;
+    const name = state.library.artistProfiles?.[artistId]?.name || artistId;
     const option = document.createElement('option');
     option.value = artistId;
-    option.textContent = `${artistId} (${count})`;
+    option.textContent = `${name} (${count})`;
     artistSelect.appendChild(option);
   });
 

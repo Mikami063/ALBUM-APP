@@ -203,11 +203,18 @@ function scanLibrary() {
 
   const artistList = [...artists.keys()].sort();
   const itemsByArtist = {};
+  const artistProfiles = {};
   const allItems = [];
 
   for (const artistId of artistList) {
     const items = artists.get(artistId) || [];
     itemsByArtist[artistId] = items;
+    const firstWithUser = items.find((item) => item?.rawMeta?.user) || null;
+    const user = firstWithUser?.rawMeta?.user || {};
+    artistProfiles[artistId] = {
+      name: typeof user.name === 'string' && user.name.trim() ? user.name : artistId,
+      username: typeof user.account === 'string' && user.account.trim() ? user.account : '',
+    };
     allItems.push(...items);
   }
 
@@ -227,6 +234,7 @@ function scanLibrary() {
     artistCounts: Object.fromEntries(
       artistList.map((artistId) => [artistId, (itemsByArtist[artistId] || []).length]),
     ),
+    artistProfiles,
     itemsByArtist,
     allItems,
   };
@@ -412,6 +420,7 @@ const server = http.createServer((req, res) => {
       artistList: library.artistList,
       totals: library.totals,
       artistCounts: library.artistCounts,
+      artistProfiles: library.artistProfiles,
       selectedArtist: artist,
       tag: tags[0] || '',
       tags,
