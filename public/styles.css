@@ -508,6 +508,12 @@ button {
   overflow: auto;
 }
 
+.image-list.multi-column {
+  display: grid;
+  grid-template-columns: repeat(var(--list-columns, 1), minmax(0, 1fr));
+  gap: 6px;
+}
+
 .image-row {
   display: grid;
   grid-template-columns: 64px 1fr;
@@ -518,6 +524,17 @@ button {
   padding: 4px;
   margin-bottom: 6px;
   cursor: pointer;
+}
+
+.image-list.multi-column .image-row {
+  grid-template-columns: 1fr;
+  gap: 6px;
+  margin-bottom: 0;
+}
+
+.image-list.multi-column .image-row img {
+  width: 100%;
+  height: 120px;
 }
 
 .image-row.active {

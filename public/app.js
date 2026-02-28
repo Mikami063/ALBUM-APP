@@ -17,6 +17,7 @@ const state = {
   titleQuery: '',
   viewMode: 'focus',
   gridColumns: 5,
+  listColumns: 1,
   gridScrollTop: 0,
   gridScrollLeft: 0,
 };
@@ -43,6 +44,7 @@ const addToListBtn = document.getElementById('add-to-list-btn');
 const removeFromListBtn = document.getElementById('remove-from-list-btn');
 const toggleListViewBtn = document.getElementById('toggle-list-view-btn');
 const perPageSelect = document.getElementById('per-page-select');
+const listColumnsSelect = document.getElementById('list-columns-select');
 const prevPageBtn = document.getElementById('prev-page-btn');
 const nextPageBtn = document.getElementById('next-page-btn');
 const pagePositionEl = document.getElementById('page-position');
@@ -127,6 +129,7 @@ function saveSettings() {
       tagFilters: state.tagFilters,
       viewMode: state.viewMode,
       gridColumns: state.gridColumns,
+      listColumns: state.listColumns,
       gridScrollTop: state.gridScrollTop,
       gridScrollLeft: state.gridScrollLeft,
     };
@@ -348,6 +351,9 @@ function applySavedSettings() {
   }
   if (typeof saved.gridColumns === 'number' && Number.isFinite(saved.gridColumns)) {
     state.gridColumns = Math.min(10, Math.max(2, Math.round(saved.gridColumns)));
+  }
+  if (typeof saved.listColumns === 'number' && Number.isFinite(saved.listColumns)) {
+    state.listColumns = Math.min(3, Math.max(1, Math.round(saved.listColumns)));
   }
   if (typeof saved.gridScrollTop === 'number' && Number.isFinite(saved.gridScrollTop)) {
     state.gridScrollTop = Math.max(0, saved.gridScrollTop);
@@ -590,6 +596,7 @@ function renderPagingControls() {
   prevPageBtn.disabled = state.listMode === 'list' || currentPage <= 1 || totalItems === 0;
   nextPageBtn.disabled = state.listMode === 'list' || currentPage >= totalPages || totalItems === 0;
   perPageSelect.value = String(state.library?.perPage || state.perPage);
+  listColumnsSelect.value = String(state.listColumns);
   pictureViewSelect.value = state.pictureView;
   titleSearchInput.value = state.titleQuery;
   renderTagFilterChips();
@@ -642,6 +649,8 @@ function removeTagFilter(rawTag) {
 
 function renderList() {
   listEl.innerHTML = '';
+  listEl.style.setProperty('--list-columns', String(state.listColumns));
+  listEl.classList.toggle('multi-column', state.listColumns > 1);
 
   state.currentItems.forEach((item, index) => {
     const row = document.createElement('button');
@@ -1325,6 +1334,12 @@ gridColumnsEl.addEventListener('input', () => {
   saveSettings();
 });
 
+listColumnsSelect.addEventListener('change', () => {
+  state.listColumns = Math.min(3, Math.max(1, Number(listColumnsSelect.value) || 1));
+  renderList();
+  saveSettings();
+});
+
 prevBtn.addEventListener('click', () => move(-1));
 nextBtn.addEventListener('click', () => move(1));
 
@@ -1347,6 +1362,7 @@ gridEl.addEventListener('scroll', () => {
 applySavedSettings();
 gridColumnsEl.value = String(state.gridColumns);
 gridColumnsValueEl.textContent = String(state.gridColumns);
+listColumnsSelect.value = String(state.listColumns);
 viewModeEl.value = state.viewMode;
 
 loadLibrary().catch((error) => {
