@@ -204,6 +204,7 @@ function scanLibrary() {
   const artistList = [...artists.keys()].sort();
   const itemsByArtist = {};
   const artistProfiles = {};
+  const artistPreviews = {};
   const allItems = [];
 
   for (const artistId of artistList) {
@@ -215,6 +216,13 @@ function scanLibrary() {
       name: typeof user.name === 'string' && user.name.trim() ? user.name : artistId,
       username: typeof user.account === 'string' && user.account.trim() ? user.account : '',
     };
+    const latest = items[0] || null;
+    artistPreviews[artistId] = latest
+      ? {
+        imageUrl: latest.imageUrl,
+        title: latest.title || '',
+      }
+      : null;
     allItems.push(...items);
   }
 
@@ -235,6 +243,7 @@ function scanLibrary() {
       artistList.map((artistId) => [artistId, (itemsByArtist[artistId] || []).length]),
     ),
     artistProfiles,
+    artistPreviews,
     itemsByArtist,
     allItems,
   };
@@ -421,6 +430,7 @@ const server = http.createServer((req, res) => {
       totals: library.totals,
       artistCounts: library.artistCounts,
       artistProfiles: library.artistProfiles,
+      artistPreviews: library.artistPreviews,
       selectedArtist: artist,
       tag: tags[0] || '',
       tags,

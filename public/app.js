@@ -26,6 +26,7 @@ const LISTS_STORAGE_KEY = 'album_viewer_lists_v1';
 const ALLOWED_PER_PAGE_VALUES = new Set(['20', '50', '100', '200', '500', 'all']);
 
 const artistSelect = document.getElementById('artist-select');
+const artistQuickListEl = document.getElementById('artist-quick-list');
 const pictureViewSelect = document.getElementById('picture-view-select');
 const titleSearchInput = document.getElementById('title-search-input');
 const applyTitleBtn = document.getElementById('apply-title-btn');
@@ -548,6 +549,30 @@ function renderArtistOptions() {
   });
 
   artistSelect.value = state.library.selectedArtist || state.selectedArtist;
+  renderArtistQuickList();
+}
+
+function renderArtistQuickList() {
+  const artists = state.library.artistList || [];
+  artistQuickListEl.innerHTML = '';
+
+  artists.forEach((artistId) => {
+    const profile = state.library.artistProfiles?.[artistId] || {};
+    const preview = state.library.artistPreviews?.[artistId] || null;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `artist-quick-item ${artistId === state.selectedArtist ? 'active' : ''}`;
+    button.dataset.artistId = artistId;
+
+    const thumbHtml = preview?.imageUrl
+      ? `<img src="${escapeHtml(preview.imageUrl)}" alt="${escapeHtml(profile.name || artistId)}">`
+      : '<div class="artist-quick-thumb"></div>';
+    button.innerHTML = `
+      ${thumbHtml}
+      <span class="artist-quick-name">${escapeHtml(profile.name || artistId)}</span>
+    `;
+    artistQuickListEl.appendChild(button);
+  });
 }
 
 function renderPagingControls() {
@@ -992,6 +1017,23 @@ async function loadLibrary() {
 
 artistSelect.addEventListener('change', () => {
   state.selectedArtist = artistSelect.value;
+  state.page = 1;
+  state.currentIndex = 0;
+  state.gridScrollTop = 0;
+  state.gridScrollLeft = 0;
+  loadLibrary().catch((error) => {
+    console.error(error);
+    countsEl.textContent = 'Failed to load library.';
+    renderEmpty();
+  });
+});
+
+artistQuickListEl.addEventListener('click', (event) => {
+  const button = event.target.closest('.artist-quick-item');
+  if (!button) return;
+  const nextArtist = button.dataset.artistId || 'all';
+  if (state.selectedArtist === nextArtist) return;
+  state.selectedArtist = nextArtist;
   state.page = 1;
   state.currentIndex = 0;
   state.gridScrollTop = 0;
