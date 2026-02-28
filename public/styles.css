@@ -34,6 +34,7 @@ body {
   grid-template-columns: 300px 1fr;
   height: 100vh;
   overflow: hidden;
+  align-items: stretch;
 }
 
 .left-panel,
@@ -335,6 +336,12 @@ button {
   height: calc(100vh - 24px);
   min-height: 0;
   overflow: hidden;
+}
+
+.app.grid-mode .left-panel {
+  height: calc(100vh - 24px);
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .app.grid-mode .photo-grid {

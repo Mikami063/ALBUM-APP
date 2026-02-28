@@ -10,31 +10,6 @@
   <div class="app">
     <aside class="left-panel">
       <h1>Album Viewer</h1>
-      <label for="artist-select">Artist</label>
-      <select id="artist-select"></select>
-      <div id="artist-quick-list" class="artist-quick-list"></div>
-      <label for="picture-view-select">Picture view</label>
-      <select id="picture-view-select">
-        <option value="single">Single</option>
-        <option value="grouped">Grouped by post</option>
-      </select>
-      <div class="title-search-controls">
-        <label for="title-search-input">Title search</label>
-        <input id="title-search-input" type="text" placeholder="search title...">
-        <div class="title-search-row">
-          <button id="apply-title-btn" type="button">Search</button>
-          <button id="clear-title-btn" type="button">Clear</button>
-        </div>
-      </div>
-      <div class="tag-filter-controls">
-        <label for="tag-filter-input">Tag filter</label>
-        <input id="tag-filter-input" type="text" placeholder="e.g. original, blue">
-        <div id="active-tag-list" class="active-tag-list"></div>
-        <div class="tag-filter-row">
-          <button id="apply-tag-btn" type="button">Add tag</button>
-          <button id="clear-tag-btn" type="button">Clear all</button>
-        </div>
-      </div>
       <section class="selection-column">
         <div class="paging-controls">
           <label for="per-page-select">Per page</label>
@@ -61,6 +36,31 @@
         <div id="counts" class="counts"></div>
         <div id="list" class="image-list"></div>
       </section>
+      <label for="artist-select">Artist</label>
+      <select id="artist-select"></select>
+      <div id="artist-quick-list" class="artist-quick-list"></div>
+      <label for="picture-view-select">Picture view</label>
+      <select id="picture-view-select">
+        <option value="single">Single</option>
+        <option value="grouped">Grouped by post</option>
+      </select>
+      <div class="title-search-controls">
+        <label for="title-search-input">Title search</label>
+        <input id="title-search-input" type="text" placeholder="search title...">
+        <div class="title-search-row">
+          <button id="apply-title-btn" type="button">Search</button>
+          <button id="clear-title-btn" type="button">Clear</button>
+        </div>
+      </div>
+      <div class="tag-filter-controls">
+        <label for="tag-filter-input">Tag filter</label>
+        <input id="tag-filter-input" type="text" placeholder="e.g. original, blue">
+        <div id="active-tag-list" class="active-tag-list"></div>
+        <div class="tag-filter-row">
+          <button id="apply-tag-btn" type="button">Add tag</button>
+          <button id="clear-tag-btn" type="button">Clear all</button>
+        </div>
+      </div>
     </aside>
 
     <main class="viewer-panel">
