@@ -708,8 +708,12 @@ function renderGrid() {
     const tile = document.createElement('button');
     tile.type = 'button';
     tile.className = `grid-tile ${index === state.currentIndex ? 'active' : ''}`;
+    const groupBadge = item.groupCount > 1
+      ? `<span class="grid-group-badge">${escapeHtml(item.groupCount)}</span>`
+      : '';
     tile.innerHTML = `
       <img src="${item.imageUrl}" alt="${escapeHtml(item.title || 'Artwork')}">
+      ${groupBadge}
       <span class="grid-label">${escapeHtml(item.title || '(Untitled)')}</span>
     `;
 

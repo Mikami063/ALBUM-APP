@@ -361,6 +361,7 @@ button {
   flex-direction: column;
   aspect-ratio: 1 / 1;
   min-height: 160px;
+  position: relative;
 }
 
 .grid-tile.active {
@@ -376,6 +377,21 @@ button {
 
 .grid-label {
   display: none;
+}
+
+.grid-group-badge {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  min-width: 24px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.2;
+  text-align: center;
+  pointer-events: none;
 }
 
 .hint {
